@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>扫描 App 交互式 UX 原型</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='18' height='20' x='3' y='2' rx='3' fill='%230071e3'/%3E%3Cpath d='M7 8h10M7 12h10M7 16h6' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="prototype-stage">
+      <section class="phone-shell" aria-label="文档扫描 App 原型">
+        <div class="status-bar" aria-hidden="true">
+          <span>9:41</span>
+          <span class="status-icons">5G 100%</span>
+        </div>
+
+        <section class="app-view active" id="view-home" data-view="home" aria-labelledby="home-title">
+          <header class="topbar topbar-light">
+            <div>
+              <p class="microcopy">本地扫描工程</p>
+              <h1 id="home-title">文档</h1>
+            </div>
+            <button class="icon-button" type="button" data-action="show-settings" aria-label="设置">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.57V21a2 2 0 0 1-4 0v-.07A1.7 1.7 0 0 0 8.96 19.4a1.7 1.7 0 0 0-1.87.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.57-1.04H3a2 2 0 0 1 0-4h.03A1.7 1.7 0 0 0 4.6 8.96a1.7 1.7 0 0 0-.34-1.87l-.04-.04a2 2 0 0 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 8.96 4.6 1.7 1.7 0 0 0 10 3.03V3a2 2 0 0 1 4 0v.03a1.7 1.7 0 0 0 1.04 1.57 1.7 1.7 0 0 0 1.87-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1.7 1.7 0 0 0-.34 1.87A1.7 1.7 0 0 0 20.97 10H21a2 2 0 0 1 0 4h-.03A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+            </button>
+          </header>
+
+          <div class="content content-gray home-content">
+            <section class="empty-state" id="empty-state">
+              <div class="empty-illustration" aria-hidden="true">
+                <span></span>
+                <span></span>
+              </div>
+              <h2>把纸质内容变成清晰 PDF</h2>
+              <p>无需登录，扫描工程和 PDF 默认保存在 App 沙盒。</p>
+              <button class="primary-button" type="button" data-action="start-scan">开始扫描</button>
+            </section>
+
+            <section class="document-list" id="document-list" aria-label="最近文档"></section>
+          </div>
+
+          <button class="floating-scan" type="button" data-action="start-scan" aria-label="扫描">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 12h8"/></svg>
+          </button>
+        </section>
+
+        <section class="app-view camera-view" id="view-camera" data-view="camera" aria-labelledby="camera-title">
+          <header class="topbar topbar-dark floating-topbar">
+            <button class="icon-button dark" type="button" data-action="go-home" aria-label="返回">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <h1 id="camera-title">扫描</h1>
+            <button class="icon-button dark" type="button" data-action="toggle-flash" aria-label="闪光灯">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
+            </button>
+          </header>
+
+          <div class="camera-feed">
+            <div class="document-live">
+              <div class="document-line"></div>
+              <div class="corner-hint tl"></div>
+              <div class="corner-hint tr"></div>
+              <div class="corner-hint br"></div>
+              <div class="corner-hint bl"></div>
+            </div>
+            <p class="scan-status" id="scan-status">已检测到文档边缘</p>
+          </div>
+
+          <div class="camera-controls material-dark">
+            <button class="control-button dark" type="button" data-action="import-gallery">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/><path d="m4 16 4.5-4.5 4 4L15 13l5 5"/><path d="M14 8h.01"/></svg>
+              相册
+            </button>
+            <button class="shutter" type="button" data-action="capture" aria-label="拍照"></button>
+            <button class="control-button dark" type="button" data-action="permission-denied">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.4 2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.4a2 2 0 0 0-3.4 0Z"/></svg>
+              权限
+            </button>
+          </div>
+        </section>
+
+        <section class="app-view permission-view" id="view-permission" data-view="permission" aria-labelledby="permission-title">
+          <header class="topbar topbar-light">
+            <button class="icon-button" type="button" data-action="show-camera" aria-label="返回">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+          </header>
+          <div class="content permission-content">
+            <div class="permission-symbol" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8 7h8l2 3h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h2l2-3Z"/><path d="M12 13v3"/><path d="M12 10h.01"/></svg>
+            </div>
+            <h1 id="permission-title">需要相机权限</h1>
+            <p>只有在你点击扫描时才请求相机权限。拒绝后仍可从相册导入图片。</p>
+            <button class="primary-button" type="button" data-action="show-camera">重新尝试</button>
+            <button class="secondary-button" type="button" data-action="import-gallery">从相册导入</button>
+          </div>
+        </section>
+
+        <section class="app-view crop-view" id="view-crop" data-view="crop" aria-labelledby="crop-title">
+          <header class="topbar topbar-dark floating-topbar">
+            <button class="icon-button dark" type="button" data-action="show-camera" aria-label="返回重拍">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <h1 id="crop-title">调整边缘</h1>
+            <button class="text-button dark" type="button" data-action="redetect">重新检测</button>
+          </header>
+
+          <div class="crop-canvas" id="crop-canvas">
+            <div class="scan-paper scan-paper-crop">
+              <div class="paper-lines"></div>
+            </div>
+            <svg class="crop-overlay" viewBox="0 0 320 430" preserveAspectRatio="none" aria-hidden="true">
+              <polygon id="crop-polygon" points="42,38 279,55 266,384 55,370"></polygon>
+            </svg>
+            <button class="crop-handle" id="corner-tl" data-corner="tl" style="left: 13%; top: 10%;" aria-label="左上角控制点"></button>
+            <button class="crop-handle" id="corner-tr" data-corner="tr" style="left: 86%; top: 14%;" aria-label="右上角控制点"></button>
+            <button class="crop-handle" id="corner-br" data-corner="br" style="left: 82%; top: 89%;" aria-label="右下角控制点"></button>
+            <button class="crop-handle" id="corner-bl" data-corner="bl" style="left: 17%; top: 86%;" aria-label="左下角控制点"></button>
+          </div>
+
+          <div class="bottom-bar material-dark">
+            <button class="secondary-dark-button" type="button" data-action="show-camera">重拍</button>
+            <button class="primary-button dark-primary" type="button" data-action="confirm-crop">确认裁剪</button>
+          </div>
+        </section>
+
+        <section class="app-view enhance-view" id="view-enhance" data-view="enhance" aria-labelledby="enhance-title">
+          <header class="topbar topbar-dark floating-topbar">
+            <button class="icon-button dark" type="button" data-action="show-crop" aria-label="重新裁剪">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <h1 id="enhance-title">图像增强</h1>
+            <button class="icon-button dark" type="button" data-action="rotate-page" aria-label="旋转">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            </button>
+          </header>
+
+          <div class="enhance-preview">
+            <div class="scan-paper processed enhanced-mode" id="processed-preview">
+              <div class="paper-lines"></div>
+            </div>
+          </div>
+
+          <div class="enhance-tools material-dark">
+            <div class="segmented" role="tablist" aria-label="图像模式">
+              <button type="button" class="segment active" data-action="set-mode" data-mode="原图">原图</button>
+              <button type="button" class="segment" data-action="set-mode" data-mode="增强">增强</button>
+              <button type="button" class="segment" data-action="set-mode" data-mode="灰度">灰度</button>
+              <button type="button" class="segment" data-action="set-mode" data-mode="黑白">黑白</button>
+            </div>
+            <div class="tool-row">
+              <button class="secondary-dark-button" type="button" data-action="show-crop">重裁剪</button>
+              <button class="primary-button dark-primary" type="button" data-action="add-page">加入文档</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="app-view" id="view-pages" data-view="pages" aria-labelledby="pages-title">
+          <header class="topbar topbar-light">
+            <button class="icon-button" type="button" data-action="go-home" aria-label="返回首页">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <div>
+              <p class="microcopy" id="document-updated">刚刚更新</p>
+              <h1 id="pages-title">当前文档</h1>
+            </div>
+            <button class="icon-button" type="button" data-action="open-rename" aria-label="重命名">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+            </button>
+          </header>
+
+          <div class="content content-gray">
+            <div class="document-summary">
+              <div>
+                <h2 id="current-doc-title">扫描文档 20260827-1430</h2>
+                <p><span id="page-count">0</span> 页 · 工程会保留，可继续编辑并重新导出</p>
+              </div>
+              <button class="danger-icon" type="button" data-action="open-delete-document" aria-label="删除文档">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+              </button>
+            </div>
+            <div class="page-grid" id="page-grid" aria-label="页面列表"></div>
+          </div>
+
+          <div class="bottom-action light-bottom">
+            <button class="secondary-button compact" type="button" data-action="show-camera">继续扫描</button>
+            <button class="secondary-button compact" type="button" data-action="import-gallery">相册导入</button>
+            <button class="primary-button compact" type="button" data-action="show-export">导出 PDF</button>
+          </div>
+        </section>
+
+        <section class="app-view" id="view-export" data-view="export" aria-labelledby="export-title">
+          <header class="topbar topbar-light">
+            <button class="icon-button" type="button" data-action="show-pages" aria-label="返回">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <h1 id="export-title">导出 PDF</h1>
+          </header>
+
+          <div class="content export-content">
+            <label class="field">
+              <span>文件名</span>
+              <input id="pdf-name" type="text" value="扫描文档 20260827-1430.pdf" autocomplete="off">
+            </label>
+
+            <section class="export-card">
+              <div class="export-row">
+                <span>页面</span>
+                <strong id="export-page-count">0 页</strong>
+              </div>
+              <div class="export-row">
+                <span>纸张</span>
+                <strong>A4 · 自动方向</strong>
+              </div>
+              <div class="export-row">
+                <span>边距</span>
+                <strong>10mm 白边</strong>
+              </div>
+              <div class="export-row">
+                <span>保存位置</span>
+                <strong>App 沙盒</strong>
+              </div>
+            </section>
+
+            <p class="storage-note">PDF 默认保存在 App 沙盒。重要文件请导出后通过分享转存，卸载 App 后 App 内扫描工程和 PDF 会随 App 数据删除。</p>
+
+            <section class="export-success hidden" id="export-success" aria-live="polite">
+              <div class="success-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              <h2>PDF 已生成</h2>
+              <p id="export-size">预计 2.4 MB · 最近一次导出已更新</p>
+              <div class="tool-row">
+                <button class="secondary-button compact" type="button" data-action="open-preview">打开预览</button>
+                <button class="primary-button compact" type="button" data-action="share-pdf">分享</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="bottom-action">
+            <button class="primary-button" type="button" data-action="export-pdf" id="export-button">导出 PDF</button>
+          </div>
+        </section>
+
+        <section class="app-view" id="view-settings" data-view="settings" aria-labelledby="settings-title">
+          <header class="topbar topbar-light">
+            <button class="icon-button" type="button" data-action="go-home" aria-label="返回">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
+            </button>
+            <h1 id="settings-title">设置</h1>
+          </header>
+
+          <div class="content content-gray settings-content">
+            <section class="settings-group">
+              <h2>本地保存</h2>
+              <p>扫描工程、原图、处理图、缩略图和 PDF 默认保存在 App 沙盒，不上传文档内容。</p>
+            </section>
+            <section class="settings-group">
+              <h2>卸载 App 后</h2>
+              <p>App 内文件会随 App 数据删除。重要 PDF 请先通过分享保存到其他 App 或位置。</p>
+            </section>
+            <section class="settings-group row">
+              <div>
+                <h2>本地日志</h2>
+                <p>日志只用于排查问题，不包含文档内容、文件名、完整路径、图片或 PDF 内容。</p>
+              </div>
+              <button class="secondary-button compact" type="button" data-action="export-logs">导出</button>
+            </section>
+            <p class="version">版本 0.2 MVP 原型</p>
+          </div>
+        </section>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+        <section class="sheet" id="sheet-rename" aria-label="重命名文档">
+          <div class="sheet-handle"></div>
+          <h2>重命名文档</h2>
+          <label class="field">
+            <span>文档名称</span>
+            <input id="rename-input" type="text" value="扫描文档 20260827-1430">
+          </label>
+          <div class="tool-row">
+            <button class="secondary-button compact" type="button" data-action="close-sheet">取消</button>
+            <button class="primary-button compact" type="button" data-action="confirm-rename">保存</button>
+          </div>
+        </section>
+
+        <section class="sheet" id="sheet-delete-document" aria-label="删除文档确认">
+          <div class="sheet-handle"></div>
+          <h2>删除文档？</h2>
+          <p>删除后会清理相关原图、处理图、缩略图和 PDF。MVP 不支持撤销。</p>
+          <div class="tool-row">
+            <button class="secondary-button compact" type="button" data-action="close-sheet">取消</button>
+            <button class="danger-button compact" type="button" data-action="confirm-delete-document">删除文档</button>
+          </div>
+        </section>
+
+        <section class="sheet" id="sheet-delete-page" aria-label="删除页面确认">
+          <div class="sheet-handle"></div>
+          <h2>删除此页？</h2>
+          <p>页面会从当前扫描工程移除。MVP 不支持撤销。</p>
+          <div class="tool-row">
+            <button class="secondary-button compact" type="button" data-action="close-sheet">取消</button>
+            <button class="danger-button compact" type="button" data-action="confirm-delete-page">删除此页</button>
+          </div>
+        </section>
+
+        <section class="sheet" id="sheet-pdf-conflict" aria-label="PDF 重名处理">
+          <div class="sheet-handle"></div>
+          <h2>PDF 文件已存在</h2>
+          <p>请选择覆盖原文件，或另存一份并自动追加序号。</p>
+          <div class="tool-row">
+            <button class="secondary-button compact" type="button" data-action="pdf-copy">另存一份</button>
+            <button class="primary-button compact" type="button" data-action="pdf-overwrite">覆盖</button>
+          </div>
+        </section>
+
+        <section class="sheet" id="sheet-temp-recovery" aria-label="恢复未确认照片">
+          <div class="sheet-handle"></div>
+          <h2>发现未确认的照片</h2>
+          <p>上次扫描可能被中断。你可以恢复继续裁剪，或放弃并清理临时照片。</p>
+          <div class="tool-row">
+            <button class="secondary-button compact" type="button" data-action="discard-temp">放弃</button>
+            <button class="primary-button compact" type="button" data-action="restore-temp">恢复</button>
+          </div>
+        </section>
+
+        <div class="scrim" id="scrim" data-action="close-sheet"></div>
+      </section>
+
+      <aside class="ux-notes" aria-label="UX 覆盖说明">
+        <h2>PRD v2026-08-27.1 UX 覆盖</h2>
+        <ul>
+          <li><strong>逐页确认：</strong>拍照或多选导入后进入裁剪，再进入增强，确认后加入文档。</li>
+          <li><strong>本地优先：</strong>首页、导出页、设置页都提示 App 沙盒和卸载删除风险。</li>
+          <li><strong>可编辑工程：</strong>导出后仍保留页面、顺序、裁剪和增强状态。</li>
+          <li><strong>关键异常：</strong>权限拒绝、识别失败兜底、PDF 重名、临时照片恢复、删除二次确认。</li>
+          <li><strong>Apple 式交互：</strong>按下反馈、半透明底栏、1:1 拖动角点、轻量 sheet 和克制动效。</li>
+        </ul>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
