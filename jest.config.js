@@ -8,4 +8,7 @@
 module.exports = {
   preset: '@react-native/jest-preset',
   testPathIgnorePatterns: ['/node_modules/', '/prototype/'],
+  transformIgnorePatterns: [
+    'node_modules/(?!((@)?react-native|react-native-image-picker)/)',
+  ],
 };

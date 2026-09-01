@@ -20,12 +20,13 @@ class MainApplication : Application(), ReactApplication {
     getDefaultReactHost(
       context = applicationContext,
       packageList =
-        PackageList(this).packages.apply {
+          PackageList(this).packages.apply {
           /*
            * 默认使用 React Native 自动链接。
            * 如果后续某个扫描原生依赖无法自动链接，再在这里手动添加 Package；
            * 具体实现应保持在独立模块中，不要把模块本体放进这个入口文件。
            */
+          add(ScannerModulePackage())
         },
     )
   }

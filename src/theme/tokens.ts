@@ -21,6 +21,8 @@ export const colors = {
   darkWorkspace: '#17122B',
   darkSurface: '#27233D',
   borderLight: '#E8DEB6',
+  shadowInk: '#C9C8D0',
+  shadowAction: '#FFBFA6',
 } as const;
 
 export const spacing = {
@@ -32,15 +34,17 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  sm: 8,
-  md: 12,
-  lg: 20,
+  sm: 10,
+  md: 16,
+  lg: 24,
 } as const;
 
 export const typography = {
-  title: 30,
+  title: 32,
   sectionTitle: 20,
   body: 16,
   caption: 13,
-  button: 16,
+  microcopy: 12,
+  textLg: 18,
+  button: 15,
 } as const;

@@ -6,12 +6,31 @@
  */
 
 import {colors, radii, spacing, typography} from './tokens';
+import {MD3LightTheme} from 'react-native-paper';
 
 export const theme = {
   colors,
   spacing,
   radii,
   typography,
+} as const;
+
+export const paperTheme = {
+  ...MD3LightTheme,
+  roundness: radii.md,
+  colors: {
+    ...MD3LightTheme.colors,
+    background: colors.surfaceDefault,
+    onPrimary: colors.surfaceDefault,
+    onPrimaryContainer: colors.inkPrimary,
+    onSurface: colors.inkPrimary,
+    onSurfaceVariant: colors.inkSecondary,
+    outline: colors.inkPrimary,
+    primary: colors.actionPrimary,
+    primaryContainer: colors.surfaceWarm,
+    surface: colors.surfaceDefault,
+    surfaceVariant: colors.surfaceWarm,
+  },
 } as const;
 
 export type AppTheme = typeof theme;

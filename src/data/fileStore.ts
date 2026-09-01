@@ -1,3 +1,5 @@
+import {NativeModules} from 'react-native';
+
 /**
  * App 沙盒文件存储的接口占位。
  *
@@ -12,6 +14,10 @@ export interface FileStore {
   createWorkspace(documentId: string): Promise<string>;
   deleteWorkspace(documentId: string): Promise<void>;
   removeFile(filePath: string): Promise<void>;
+  saveDocument(documentId: string, serialized: string): Promise<void>;
+  loadDocuments(): Promise<string[]>;
+  deleteDocument(documentId: string): Promise<void>;
+  savePageImage(documentId: string, pageId: string, imagePath: string, kind: 'original' | 'processed'): Promise<string>;
 }
 
 /**
@@ -21,15 +27,45 @@ export interface FileStore {
  * 图片真的已经保存。M3 接入真实沙盒存储后，替换这个对象即可。
  */
 export const fileStore: FileStore = {
-  async createWorkspace(): Promise<string> {
-    throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+  async createWorkspace(documentId): Promise<string> {
+    const create = NativeModules.ScannerModule?.createWorkspace as ((id: string) => Promise<string>) | undefined;
+    if (!create) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    return create(documentId);
   },
 
-  async deleteWorkspace(): Promise<void> {
-    throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+  async deleteWorkspace(documentId): Promise<void> {
+    const remove = NativeModules.ScannerModule?.deleteWorkspace as ((id: string) => Promise<void>) | undefined;
+    if (!remove) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    await remove(documentId);
   },
 
-  async removeFile(): Promise<void> {
-    throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+  async removeFile(filePath): Promise<void> {
+    const remove = NativeModules.ScannerModule?.removeFile as ((path: string) => Promise<void>) | undefined;
+    if (!remove) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    await remove(filePath);
+  },
+
+  async saveDocument(documentId, serialized): Promise<void> {
+    const save = NativeModules.ScannerModule?.saveDocument as ((id: string, value: string) => Promise<void>) | undefined;
+    if (!save) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    await save(documentId, serialized);
+  },
+
+  async loadDocuments(): Promise<string[]> {
+    const load = NativeModules.ScannerModule?.loadDocuments as (() => Promise<string[]>) | undefined;
+    if (!load) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    return load();
+  },
+
+  async deleteDocument(documentId): Promise<void> {
+    const remove = NativeModules.ScannerModule?.deleteDocument as ((id: string) => Promise<void>) | undefined;
+    if (!remove) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    await remove(documentId);
+  },
+
+  async savePageImage(documentId, pageId, imagePath, kind): Promise<string> {
+    const save = NativeModules.ScannerModule?.savePageImage as ((docId: string, pageId: string, path: string, kind: string) => Promise<string>) | undefined;
+    if (!save) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
+    return save(documentId, pageId, imagePath, kind);
   },
 };

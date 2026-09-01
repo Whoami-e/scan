@@ -6,7 +6,7 @@
  * 稳定的路径和状态，避免 UI 代码知道过多平台细节。
  */
 
-export type EnhanceMode = 'original' | 'enhanced' | 'grayscale' | 'blackWhite';
+export type EnhanceMode = 'original' | 'enhanced' | 'grayscale';
 
 export type DocumentStatus =
   | 'draft'
@@ -38,6 +38,12 @@ export interface ScanPage {
   enhanceMode: EnhanceMode;
   source: ImageSource;
   createdAt: string;
+}
+
+export interface ScanSession {
+  document: Document;
+  pendingImagePath?: string;
+  pendingImageQueue: string[];
 }
 
 export interface Document {

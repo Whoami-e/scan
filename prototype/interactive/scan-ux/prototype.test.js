@@ -38,11 +38,12 @@ test("prototype contains the PRD MVP screen landmarks", () => {
     "sheet-rename",
     "sheet-delete-document",
     "sheet-delete-page",
-    "sheet-pdf-conflict",
-    "sheet-temp-recovery"
+    "sheet-pdf-conflict"
   ].forEach((id) => {
     assert(html.includes(`id="${id}"`), `Missing #${id}`);
   });
+
+  assert(!html.includes('id="sheet-temp-recovery"'), "Temporary-photo recovery sheet must be removed");
 });
 
 test("prototype copy reflects local-first privacy and sandbox storage constraints", () => {
@@ -85,8 +86,7 @@ test("interaction model exposes required document workflow actions", () => {
     "movePage",
     "renameDocument",
     "resolvePdfConflict",
-    "setEnhanceMode",
-    "restoreTempPhoto"
+    "setEnhanceMode"
   ].forEach((method) => {
     assert(typeof model[method] === "function", `Missing model method: ${method}`);
   });
@@ -102,6 +102,27 @@ test("interaction model exposes required document workflow actions", () => {
   assert(state.currentDocument.pages[0].mode === "黑白", "Expected reordered page first");
   assert(state.currentDocument.title === "报销单 0827", "Expected renamed document");
   assert(state.export.conflictResolution === "copy", "Expected PDF copy conflict resolution");
+});
+
+test("pages view provides editable untitled document heading", () => {
+  const html = read("index.html");
+  assert(html.includes('data-action="edit-document-title"'), "Document title must be an editable action");
+  assert(html.includes('id="document-title-input"'), "Document title input must exist");
+
+  const appSource = read("app.js");
+  const sandbox = {
+    window: {},
+    document: {
+      addEventListener() {},
+      querySelectorAll() { return []; },
+      getElementById() { return null; }
+    },
+    console
+  };
+  vm.runInNewContext(appSource, sandbox);
+  const state = sandbox.window.ScanUxModel.createState();
+  assert(/^未命名文档 \d{4}$/.test(state.currentDocument.title), "Default title must be untitled plus four random digits");
+  assert(state.export.fileName === `${state.currentDocument.title}.pdf`, "Default PDF name must follow the document title");
 });
 
 test("every declared UI action is handled by the prototype script", () => {

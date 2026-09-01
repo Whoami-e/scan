@@ -20,13 +20,20 @@ export interface EdgeDetectionResult {
 export interface PdfOptions {
   pageSize: 'A4';
   marginMillimeters: number;
+  orientation?: 'auto' | 'portrait' | 'landscape';
 }
 
 export interface ScannerModule {
+  capturePhoto(): Promise<{imagePath: string}>;
+  setFlash(enabled: boolean): Promise<void>;
   detectDocumentEdges(imagePath: string): Promise<EdgeDetectionResult>;
   cropAndWarp(
     imagePath: string,
     corners: DocumentCorners,
+  ): Promise<{processedImagePath: string}>;
+  rotateImage(
+    imagePath: string,
+    degrees: 90 | 180 | 270,
   ): Promise<{processedImagePath: string}>;
   enhanceImage(
     imagePath: string,
@@ -37,6 +44,7 @@ export interface ScannerModule {
     outputName: string,
     options: PdfOptions,
   ): Promise<{pdfPath: string}>;
+  listPdfNames(): Promise<string[]>;
   shareFile(filePath: string): Promise<void>;
   openFile(filePath: string): Promise<void>;
   exportLogs(): Promise<{logFilePath: string}>;
@@ -46,8 +54,8 @@ const nativeScanner = NativeModules.ScannerModule as
   | Partial<ScannerModule>
   | undefined;
 
-function unavailable(methodName: string): never {
-  throw new Error(
+function unavailable(methodName: string): Error {
+  return new Error(
     `${methodName} 尚未接入原生扫描模块（当前平台：${Platform.OS}）`,
   );
 }
@@ -59,6 +67,14 @@ function unavailable(methodName: string): never {
  * 时可以提前覆盖错误状态，避免把原生模块缺失伪装成业务成功。
  */
 export const scannerModule: ScannerModule = {
+  capturePhoto: () =>
+    nativeScanner?.capturePhoto?.() ??
+    Promise.reject(unavailable('capturePhoto')),
+
+  setFlash: enabled =>
+    nativeScanner?.setFlash?.(enabled) ??
+    Promise.reject(unavailable('setFlash')),
+
   detectDocumentEdges: imagePath =>
     nativeScanner?.detectDocumentEdges?.(imagePath) ??
     Promise.reject(unavailable('detectDocumentEdges')),
@@ -67,6 +83,10 @@ export const scannerModule: ScannerModule = {
     nativeScanner?.cropAndWarp?.(imagePath, corners) ??
     Promise.reject(unavailable('cropAndWarp')),
 
+  rotateImage: (imagePath, degrees) =>
+    nativeScanner?.rotateImage?.(imagePath, degrees) ??
+    Promise.reject(unavailable('rotateImage')),
+
   enhanceImage: (imagePath, mode) =>
     nativeScanner?.enhanceImage?.(imagePath, mode) ??
     Promise.reject(unavailable('enhanceImage')),
@@ -74,6 +94,10 @@ export const scannerModule: ScannerModule = {
   createPdf: (pageImagePaths, outputName, options) =>
     nativeScanner?.createPdf?.(pageImagePaths, outputName, options) ??
     Promise.reject(unavailable('createPdf')),
+
+  listPdfNames: () =>
+    nativeScanner?.listPdfNames?.() ??
+    Promise.reject(unavailable('listPdfNames')),
 
   shareFile: filePath =>
     nativeScanner?.shareFile?.(filePath) ??

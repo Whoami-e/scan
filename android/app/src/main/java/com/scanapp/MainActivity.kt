@@ -31,4 +31,20 @@ class MainActivity : ReactActivity() {
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray,
+  ) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == ScannerCameraView.REQUEST_CAMERA) {
+      ScannerCameraView.activeView?.onPermissionResult(requestCode, grantResults)
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    ScannerCameraView.activeView?.onHostResume()
+  }
 }

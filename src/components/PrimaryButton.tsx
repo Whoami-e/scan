@@ -6,61 +6,86 @@
  */
 
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  type PressableStateCallbackType,
-} from 'react-native';
+import {StyleSheet, View} from 'react-native';
+import {Button} from 'react-native-paper';
 
 import {theme} from '../theme/theme';
 
 interface PrimaryButtonProps {
+  accessibilityLabel?: string;
+  icon?: React.ComponentProps<typeof Button>['icon'];
   label: string;
   onPress: () => void;
   disabled?: boolean;
 }
 
 function PrimaryButton({
+  accessibilityLabel,
+  icon,
   label,
   onPress,
   disabled = false,
 }: PrimaryButtonProps): React.JSX.Element {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{disabled}}
-      disabled={disabled}
-      onPress={onPress}
-      style={(state: PressableStateCallbackType) => [
-        styles.button,
-        state.pressed && styles.buttonPressed,
-        disabled && styles.buttonDisabled,
-      ]}>
-      <Text style={styles.label}>{label}</Text>
-    </Pressable>
+    <View style={styles.wrapper}>
+      <View
+        pointerEvents="none"
+        style={[styles.shadowLayer, disabled && styles.shadowLayerDisabled]}
+      />
+      <Button
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{disabled}}
+        buttonColor={theme.colors.actionPrimary}
+        disabled={disabled}
+        icon={icon}
+        mode="contained"
+        onPress={onPress}
+        style={[styles.button, disabled && styles.buttonDisabled]}
+        contentStyle={styles.content}
+        labelStyle={styles.label}
+        uppercase={false}>
+        {label}
+      </Button>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    backgroundColor: theme.colors.actionPrimary,
-    borderRadius: theme.radii.md,
-    minHeight: 52,
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
+  wrapper: {
+    position: 'relative',
+    width: '100%',
   },
-  buttonPressed: {
-    backgroundColor: theme.colors.actionPressed,
+  shadowLayer: {
+    backgroundColor: theme.colors.inkPrimary,
+    borderRadius: theme.radii.md,
+    bottom: -7,
+    left: 7,
+    position: 'absolute',
+    right: -7,
+    top: 7,
+  },
+  shadowLayerDisabled: {
+    opacity: 0.45,
+  },
+  button: {
+    borderRadius: theme.radii.md,
+    elevation: 4,
+    shadowColor: theme.colors.inkPrimary,
+    shadowOffset: {height: 4, width: 4},
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    width: '100%',
+  },
+  content: {
+    minHeight: 48,
+    paddingHorizontal: 0,
   },
   buttonDisabled: {
     opacity: 0.45,
   },
   label: {
-    color: theme.colors.surfaceDefault,
     fontSize: theme.typography.button,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
 

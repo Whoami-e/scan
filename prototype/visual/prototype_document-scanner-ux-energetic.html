@@ -423,27 +423,13 @@
       padding: 14px 24px 22px;
       gap: var(--space-4);
     }
-    .restore-banner {
-      margin: 12px 14px 0;
-      padding: 10px 12px;
-      border-radius: var(--radius-lg);
-      background: color-mix(in oklch, var(--fg-2), transparent 8%);
-      color: var(--bg);
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-3);
-      font-size: 13px;
-    }
-    .restore-banner.show { display: flex; }
-
     .crop-area,
     .enhance-area {
       flex: 1;
       min-height: 0;
       display: grid;
       place-items: center;
-      padding: 14px 20px 8px;
+      padding: 8px 14px 4px;
     }
     .crop-canvas,
     .scan-preview {
@@ -457,6 +443,9 @@
         var(--bg);
       box-shadow: 0 20px 48px color-mix(in oklch, var(--fg), transparent 52%);
       overflow: hidden;
+    }
+    .crop-canvas {
+      aspect-ratio: 0.6;
     }
     .crop-canvas::after {
       content: "";
@@ -962,6 +951,7 @@
     .secondary-btn {
       border: 2px solid var(--fg);
       background: var(--surface);
+      box-shadow: 4px 4px 0 var(--fg);
     }
     .secondary-btn:hover {
       background: var(--surface-warm);
@@ -975,6 +965,7 @@
     .bottom-action {
       background: var(--surface-warm);
       border-top: 3px solid var(--fg);
+      align-items: center;
     }
     .dark .bottom-action {
       background: color-mix(in oklab, var(--fg-2), transparent 2%);
@@ -1220,10 +1211,6 @@
                     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
                   </button>
                 </div>
-              </div>
-              <div class="restore-banner" id="restoreBanner" data-od-id="restore-banner">
-                <span>发现 1 张未确认照片</span>
-                <button class="ghost-btn" data-action="restore" data-od-id="button-restore-temp">恢复</button>
               </div>
               <div class="camera-preview" data-od-id="camera-preview">
                 <div class="paper-live" aria-hidden="true"></div>
@@ -1476,7 +1463,7 @@
       camera: {
         title: "拍摄",
         description: "沉浸式相机页保留手动拍照、闪光灯和相册导入；自动检测只做提示，不自动触发拍照。",
-        checks: ["拒绝相机权限时展示说明和设置入口", "相册多选按顺序逐页确认", "中断后可恢复未确认临时照片"]
+        checks: ["拒绝相机权限时展示说明和设置入口", "相册多选按顺序逐页确认"]
       },
       crop: {
         title: "裁剪",
@@ -1730,11 +1717,6 @@
           qs("#cameraHintText").textContent = state.permissionDenied ? "相机权限已拒绝" : "已检测到文档边缘";
           showToast(state.permissionDenied ? "请在系统设置中开启相机权限" : "相机权限已允许");
         }
-        if (action === "restore") {
-          qs("#restoreBanner").classList.remove("show");
-          setScreen("crop");
-          showToast("已恢复临时照片");
-        }
         if (action === "redetect") {
           qs("#phoneScreen").style.setProperty("--p1x", "13%");
           qs("#phoneScreen").style.setProperty("--p1y", "9%");
@@ -1777,26 +1759,38 @@
     });
 
     let activeCorner = null;
+
+    function updateActiveCorner(event) {
+      if (!activeCorner) return;
+      event.preventDefault();
+      const rect = qs("#cropCanvas").getBoundingClientRect();
+      const x = Math.max(5, Math.min(95, ((event.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(5, Math.min(95, ((event.clientY - rect.top) / rect.height) * 100));
+      const i = activeCorner.dataset.corner;
+      qs("#phoneScreen").style.setProperty(`--p${i}x`, `${x.toFixed(1)}%`);
+      qs("#phoneScreen").style.setProperty(`--p${i}y`, `${y.toFixed(1)}%`);
+      positionCorners();
+    }
+
+    function endActiveCorner() {
+      if (!activeCorner) return;
+      activeCorner = null;
+      showToast("裁剪边缘已更新");
+    }
+
     qsa(".corner").forEach(corner => {
       corner.addEventListener("pointerdown", event => {
+        event.preventDefault();
         activeCorner = corner;
-        corner.setPointerCapture(event.pointerId);
+        if (typeof corner.setPointerCapture === "function") corner.setPointerCapture(event.pointerId);
       });
-      corner.addEventListener("pointermove", event => {
-        if (activeCorner !== corner) return;
-        const rect = qs("#cropCanvas").getBoundingClientRect();
-        const x = Math.max(5, Math.min(95, ((event.clientX - rect.left) / rect.width) * 100));
-        const y = Math.max(5, Math.min(95, ((event.clientY - rect.top) / rect.height) * 100));
-        const i = corner.dataset.corner;
-        qs("#phoneScreen").style.setProperty(`--p${i}x`, `${x.toFixed(1)}%`);
-        qs("#phoneScreen").style.setProperty(`--p${i}y`, `${y.toFixed(1)}%`);
-        positionCorners();
-      });
-      corner.addEventListener("pointerup", () => {
-        activeCorner = null;
-        showToast("裁剪边缘已更新");
-      });
+      corner.addEventListener("pointermove", updateActiveCorner, {passive: false});
+      corner.addEventListener("pointerup", endActiveCorner);
+      corner.addEventListener("pointercancel", endActiveCorner);
     });
+    document.addEventListener("pointermove", updateActiveCorner, {passive: false});
+    document.addEventListener("pointerup", endActiveCorner);
+    document.addEventListener("pointercancel", endActiveCorner);
 
     qs("#modal").addEventListener("click", event => {
       if (event.target.id === "modal") qs("#modal").classList.remove("show");
@@ -1806,7 +1800,6 @@
     renderPages();
     renderInspector();
     positionCorners();
-    setTimeout(() => qs("#restoreBanner").classList.add("show"), 600);
   </script>
 </body>
 </html>

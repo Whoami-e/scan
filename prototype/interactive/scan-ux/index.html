@@ -156,35 +156,23 @@
           </div>
         </section>
 
-        <section class="app-view" id="view-pages" data-view="pages" aria-labelledby="pages-title">
-          <header class="topbar topbar-light">
-            <button class="icon-button" type="button" data-action="go-home" aria-label="返回首页">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6"/></svg>
-            </button>
-            <div>
-              <p class="microcopy" id="document-updated">刚刚更新</p>
-              <h1 id="pages-title">当前文档</h1>
+        <section class="app-view pages-view" id="view-pages" data-view="pages" aria-labelledby="pages-title">
+          <header class="pages-header">
+            <div class="pages-heading">
+              <button class="document-title-button" id="current-doc-title" type="button" data-action="edit-document-title" aria-label="编辑文档标题">未命名文档</button>
+              <input class="document-title-input" id="document-title-input" type="text" aria-label="文档标题" autocomplete="off" hidden>
+              <p><span id="page-count">0</span> 页 · 长按或按钮调整顺序</p>
             </div>
-            <button class="icon-button" type="button" data-action="open-rename" aria-label="重命名">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+            <button class="icon-button pages-rescan" type="button" data-action="show-camera" aria-label="再拍别的照片">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M12 8v8M8 12h8"/></svg>
             </button>
           </header>
 
-          <div class="content content-gray">
-            <div class="document-summary">
-              <div>
-                <h2 id="current-doc-title">扫描文档 20260827-1430</h2>
-                <p><span id="page-count">0</span> 页 · 工程会保留，可继续编辑并重新导出</p>
-              </div>
-              <button class="danger-icon" type="button" data-action="open-delete-document" aria-label="删除文档">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-              </button>
-            </div>
+          <div class="content pages-content">
             <div class="page-grid" id="page-grid" aria-label="页面列表"></div>
           </div>
 
           <div class="bottom-action light-bottom">
-            <button class="secondary-button compact" type="button" data-action="show-camera">继续扫描</button>
             <button class="secondary-button compact" type="button" data-action="import-gallery">相册导入</button>
             <button class="primary-button compact" type="button" data-action="show-export">导出 PDF</button>
           </div>
@@ -316,16 +304,6 @@
           </div>
         </section>
 
-        <section class="sheet" id="sheet-temp-recovery" aria-label="恢复未确认照片">
-          <div class="sheet-handle"></div>
-          <h2>发现未确认的照片</h2>
-          <p>上次扫描可能被中断。你可以恢复继续裁剪，或放弃并清理临时照片。</p>
-          <div class="tool-row">
-            <button class="secondary-button compact" type="button" data-action="discard-temp">放弃</button>
-            <button class="primary-button compact" type="button" data-action="restore-temp">恢复</button>
-          </div>
-        </section>
-
         <div class="scrim" id="scrim" data-action="close-sheet"></div>
       </section>
 
@@ -335,7 +313,7 @@
           <li><strong>逐页确认：</strong>拍照或多选导入后进入裁剪，再进入增强，确认后加入文档。</li>
           <li><strong>本地优先：</strong>首页、导出页、设置页都提示 App 沙盒和卸载删除风险。</li>
           <li><strong>可编辑工程：</strong>导出后仍保留页面、顺序、裁剪和增强状态。</li>
-          <li><strong>关键异常：</strong>权限拒绝、识别失败兜底、PDF 重名、临时照片恢复、删除二次确认。</li>
+          <li><strong>关键异常：</strong>权限拒绝、识别失败兜底、PDF 重名、删除二次确认。</li>
           <li><strong>Apple 式交互：</strong>按下反馈、半透明底栏、1:1 拖动角点、轻量 sheet 和克制动效。</li>
         </ul>
       </aside>

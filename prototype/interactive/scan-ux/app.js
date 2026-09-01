@@ -1,6 +1,8 @@
 (function () {
   const existingPdfNames = new Set(["扫描文档 20260827-1430.pdf"]);
-  const defaultTitle = "扫描文档 20260827-1430";
+  function createDefaultTitle() {
+    return `未命名文档 ${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
+  }
 
   function createPage(index, mode) {
     return {
@@ -14,23 +16,23 @@
 
   const ScanUxModel = {
     createState() {
+      const title = createDefaultTitle();
       return {
         currentView: "home",
         activeSheet: null,
         pendingDeletePageId: null,
         enhanceMode: "增强",
         flashOn: false,
-        tempPhotoAvailable: true,
         currentDocument: {
           id: "doc_001",
-          title: defaultTitle,
+          title,
           createdAt: "今天 14:30",
           updatedAt: "刚刚更新",
           status: "draft",
           pages: []
         },
         export: {
-          fileName: `${defaultTitle}.pdf`,
+          fileName: `${title}.pdf`,
           conflictResolution: null,
           completed: false,
           fileSize: "2.4 MB"
@@ -82,10 +84,6 @@
     setEnhanceMode(state, mode) {
       state.enhanceMode = mode;
     },
-    restoreTempPhoto(state, shouldRestore) {
-      state.tempPhotoAvailable = false;
-      state.currentView = shouldRestore ? "crop" : "camera";
-    }
   };
 
   window.ScanUxModel = ScanUxModel;
@@ -119,6 +117,12 @@
       view.classList.toggle("active", view.dataset.view === name);
     });
     render();
+    const shell = document.querySelector(".phone-shell");
+    if (shell) {
+      shell.scrollTop = 0;
+      requestAnimationFrame(() => { shell.scrollTop = 0; });
+      setTimeout(() => { shell.scrollTop = 0; }, 0);
+    }
   }
 
   function showSheet(id) {
@@ -172,7 +176,7 @@
     button.dataset.action = direction;
     button.dataset.index = String(index);
     button.setAttribute("aria-label", label);
-    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+    button.textContent = path;
     return button;
   }
 
@@ -181,28 +185,24 @@
     document.getElementById("current-doc-title").textContent = state.currentDocument.title;
     document.getElementById("page-count").textContent = String(pages.length);
     document.getElementById("export-page-count").textContent = `${pages.length} 页`;
-    document.getElementById("document-updated").textContent = state.currentDocument.updatedAt;
     pageGrid.innerHTML = "";
 
     pages.forEach((page, index) => {
       const item = document.createElement("article");
       item.className = "page-item";
       item.innerHTML = `
+        <span class="page-number" aria-hidden="true">${index + 1}</span>
         <button class="page-thumb" type="button" data-action="edit-page" data-page-id="${page.id}" aria-label="重新编辑第 ${index + 1} 页">
           <span class="mini-paper mode-${page.mode}"></span>
         </button>
-        <div class="page-meta">
-          <span>${index + 1}</span>
-          <span>${page.mode}</span>
-        </div>
+        <div class="page-meta"><span>${page.name || (index === 0 ? "A4 文档" : index === 1 ? "手写笔记" : "报销单")} · ${page.mode}</span></div>
       `;
 
       const actions = document.createElement("div");
       actions.className = "page-actions";
-      actions.appendChild(pageButton(page, index, "move-page-up", "上移", '<path d="m18 15-6-6-6 6"/>'));
-      actions.appendChild(pageButton(page, index, "move-page-down", "下移", '<path d="m6 9 6 6 6-6"/>'));
-      actions.appendChild(pageButton(page, index, "open-delete-page", "删除页面", '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/>'));
-      item.querySelector(".page-meta").appendChild(actions);
+      actions.appendChild(pageButton(page, index, "move-page-up", "上移", "上移"));
+      actions.appendChild(pageButton(page, index, "open-delete-page", "删除页面", "删除"));
+      item.appendChild(actions);
       pageGrid.appendChild(item);
     });
   }
@@ -257,11 +257,7 @@
     }
 
     if (action === "start-scan") {
-      if (state.tempPhotoAvailable) {
-        showSheet("sheet-temp-recovery");
-      } else {
-        showView("camera");
-      }
+      showView("camera");
       return;
     }
 
@@ -304,6 +300,15 @@
         }
         showView("enhance");
       },
+      "edit-document-title": () => {
+        const titleButton = document.getElementById("current-doc-title");
+        const titleInput = document.getElementById("document-title-input");
+        titleInput.value = state.currentDocument.title;
+        titleButton.hidden = true;
+        titleInput.hidden = false;
+        titleInput.focus();
+        titleInput.select();
+      },
       "open-rename": () => {
         document.getElementById("rename-input").value = state.currentDocument.title;
         showSheet("sheet-rename");
@@ -320,7 +325,7 @@
       "open-delete-document": () => showSheet("sheet-delete-document"),
       "confirm-delete-document": () => {
         state.currentDocument.pages = [];
-        state.currentDocument.title = defaultTitle;
+        state.currentDocument.title = createDefaultTitle();
         state.export.completed = false;
         closeSheet();
         showToast("文档和本地资源已清理");
@@ -366,18 +371,6 @@
         state.flashOn = !state.flashOn;
         showToast(state.flashOn ? "闪光灯已开启" : "闪光灯已关闭");
       },
-      "restore-temp": () => {
-        ScanUxModel.restoreTempPhoto(state, true);
-        closeSheet();
-        showToast("已恢复未确认照片");
-        showView("crop");
-      },
-      "discard-temp": () => {
-        ScanUxModel.restoreTempPhoto(state, false);
-        closeSheet();
-        showToast("临时照片已清理");
-        showView("camera");
-      },
       "close-sheet": closeSheet
     };
 
@@ -399,6 +392,36 @@
     state.export.completed = false;
     renderExport();
   });
+
+  const titleInput = document.getElementById("document-title-input");
+  const titleButton = document.getElementById("current-doc-title");
+  function commitDocumentTitle() {
+    if (titleInput.hidden) {
+      return;
+    }
+    if (ScanUxModel.renameDocument(state, titleInput.value)) {
+      titleInput.hidden = true;
+      titleButton.hidden = false;
+      renderPages();
+      showToast("文档标题已更新");
+    } else {
+      titleInput.value = state.currentDocument.title;
+      titleInput.focus();
+      showToast("文档名称不能为空");
+    }
+  }
+  titleInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitDocumentTitle();
+    }
+    if (event.key === "Escape") {
+      titleInput.value = state.currentDocument.title;
+      titleInput.hidden = true;
+      titleButton.hidden = false;
+    }
+  });
+  titleInput.addEventListener("blur", commitDocumentTitle);
 
   function updateCropPolygon() {
     const canvas = document.getElementById("crop-canvas");
