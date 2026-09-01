@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-apk-${{ github.ref }}
@@ -61,3 +61,19 @@ jobs:
           path: Oran.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_tag="oran-build-${GITHUB_RUN_NUMBER}"
+          if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$release_tag" Oran.apk --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$release_tag" Oran.apk \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Oran APK build ${GITHUB_RUN_NUMBER}" \
+              --notes "Automated Android APK build for commit ${GITHUB_SHA}."
+          fi
