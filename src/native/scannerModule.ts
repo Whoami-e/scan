@@ -15,6 +15,7 @@ import {DocumentCorners, EnhanceMode} from '../data/models';
 export interface EdgeDetectionResult {
   corners: DocumentCorners;
   confidence: number;
+  source?: 'opencv' | 'fallback';
 }
 
 export interface PdfOptions {
