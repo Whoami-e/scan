@@ -79,6 +79,19 @@ test('keeps the preview frame styling stable while switching modes', () => {
   expect(renderer!.root.findAllByProps({accessibilityLabel: '灰度'})).not.toHaveLength(0);
 });
 
+test('announces the selected enhancement mode in the preview label', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<EnhanceScreen imagePath="file:///tmp/cropped.jpg" />);
+  });
+
+  expect(renderer!.root.findByProps({accessibilityLabel: '图像预览：原图'})).toBeDefined();
+
+  ReactTestRenderer.act(() => renderer!.root.findByProps({accessibilityLabel: '灰度'}).props.onPress());
+
+  expect(renderer!.root.findByProps({accessibilityLabel: '图像预览：灰度'})).toBeDefined();
+});
+
 test('switches the preview frame to landscape after a 90 degree rotation', () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {

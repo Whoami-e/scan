@@ -91,6 +91,23 @@ test('commits a captured photo through crop and enhance into the document', asyn
   expect(root.findByProps({accessibilityLabel: '第 1 页预览'})).toBeDefined();
 });
 
+test('returns the enhancement selector to original when native enhancement fails', async () => {
+  jest.mocked(scannerModule.enhanceImage).mockRejectedValueOnce(Object.assign(new Error('ENHANCE_FAILED'), {code: 'ENHANCE_FAILED'}));
+
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  const root = renderer!.root;
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '扫描'}).props.onPress());
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '拍照'}).props.onPress());
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '确认裁剪'}).props.onPress());
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '增强'}).props.onPress());
+  await ReactTestRenderer.act(async () => { await Promise.resolve(); });
+
+  expect(root.findByProps({accessibilityLabel: '原图'}).props.accessibilityState.selected).toBe(true);
+});
+
 test('rotates the cropped image by 90 degrees per tap before adding it', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {

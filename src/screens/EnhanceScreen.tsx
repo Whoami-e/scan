@@ -78,7 +78,7 @@ function EnhanceScreen({
         </View>
 
         <View style={styles.preview} accessibilityLabel="增强预览">
-          <View testID="enhance-preview-paper" style={[styles.paper, (rotationDegrees === 90 || rotationDegrees === 270) && styles.paperLandscape]}>
+          <View accessibilityLabel={`图像预览：${modes.find(item => item.key === selectedMode)?.label ?? '原图'}`} testID="enhance-preview-paper" style={[styles.paper, (rotationDegrees === 90 || rotationDegrees === 270) && styles.paperLandscape]}>
             {imagePath ? <Image accessibilityLabel="增强后的照片" resizeMode="contain" source={{uri: imagePath}} style={styles.previewImage} /> : null}
           </View>
           <Text style={styles.previewHint}>预览效果</Text>

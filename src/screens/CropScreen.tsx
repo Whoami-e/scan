@@ -107,7 +107,7 @@ function CropScreen({
               y: clamp(dragStartRef.current.y + gesture.dy / paperSizeRef.current.height),
             },
           } as CropCorners;
-          updateCorners(next);
+          if (isValidCropCorners(next)) updateCorners(next);
         },
         onPanResponderRelease: () => {
           dragStartRef.current = null;
@@ -217,6 +217,28 @@ function CropScreen({
       </View>
     </View>
   );
+}
+
+export function isValidCropCorners(corners: CropCorners): boolean {
+  const points = [corners.tl, corners.tr, corners.br, corners.bl];
+  if (points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) return false;
+  if (points.some(point => point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1)) return false;
+
+  const signedArea = points.reduce((area, point, index) => {
+    const next = points[(index + 1) % points.length];
+    return area + point.x * next.y - point.y * next.x;
+  }, 0) / 2;
+  if (signedArea < 0.01) return false;
+
+  return points.every((point, index) => {
+    const next = points[(index + 1) % points.length];
+    const afterNext = points[(index + 2) % points.length];
+    return (
+      (next.x - point.x) * (afterNext.y - next.y) -
+        (next.y - point.y) * (afterNext.x - next.x) >
+      1e-9
+    );
+  });
 }
 
 function cornerLabel(id: CornerId): string {

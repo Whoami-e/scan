@@ -105,6 +105,11 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
+    sourceSets {
+        release {
+            assets.srcDirs += [layout.buildDirectory.dir("generated/legal-assets")]
+        }
+    }
 }
 
 dependencies {
@@ -123,4 +128,31 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+def legalAssetsDirectory = layout.buildDirectory.dir("generated/legal-assets")
+def syncLegalNotices = tasks.register("syncLegalNotices", Sync) {
+    from(rootProject.file("../LICENSE"))
+    from(rootProject.file("../NOTICE"))
+    into(legalAssetsDirectory)
+}
+
+tasks.matching { it.name.contains("Release") }.configureEach {
+    dependsOn(syncLegalNotices)
+}
+
+def releaseApk = layout.buildDirectory.file("outputs/apk/release/app-release.apk")
+def verifyReleaseContents = tasks.register("verifyReleaseContents", Exec) {
+    group = "verification"
+    description = "Reject forbidden identifiers, test data, models, local paths, and missing legal notices in the release APK."
+    inputs.file(releaseApk)
+    outputs.upToDateWhen { false }
+    commandLine(
+        rootProject.file("../scripts/verify-release-contents.sh").absolutePath,
+        releaseApk.get().asFile.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    finalizedBy(verifyReleaseContents)
 }
