@@ -1,6 +1,6 @@
-# 文档扫描 App
+# 橙印扫描 App
 
-这是一个 Android 优先的文档扫描 App MVP 项目，使用 React Native Community CLI + TypeScript 初始化。当前仓库已经具备 RN Android/iOS 工程骨架和最小首页，但相机、边缘识别、图像处理和 PDF 生成等核心原生能力仍待实现。
+这是一个 Android 优先的橙印扫描 App MVP 项目，使用 React Native Community CLI + TypeScript 初始化。当前仓库已经具备 RN Android/iOS 工程骨架和最小首页，但相机、边缘识别、图像处理和 PDF 生成等核心原生能力仍待实现。
 
 ## 当前状态
 
@@ -184,7 +184,7 @@ node prototype/interactive/scan-ux/prototype.test.js
 ## 当前工程约定
 
 - React Native：`0.87.1`
-- 应用显示名称：`文档扫描`
+- 应用显示名称：`橙印扫描`
 - Android 应用标识：`com.scanapp`
 - Android 最低版本：API `29`，对应 Android 10
 - Node：`>= 22.11.0`

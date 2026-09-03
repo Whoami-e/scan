@@ -151,6 +151,55 @@ test('updates a corner when its handle is dragged', () => {
   expect(handleStyle.top).toBe('20%');
 });
 
+test('allows crop corners to be dragged flush to the frame edges', () => {
+  const renderer = renderCrop();
+  const frame = renderer.root.findByProps({testID: 'crop-frame'});
+  ReactTestRenderer.act(() => {
+    frame.props.onLayout({nativeEvent: {layout: {width: 300, height: 500}}});
+  });
+
+  const handle = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
+  const touchEvent = (dx: number, dy: number, timestamp: number) => ({
+    touchHistory: {
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: timestamp,
+      numberActiveTouches: 1,
+      touchBank: [
+        {
+          currentPageX: dx,
+          currentPageY: dy,
+          currentTimeStamp: timestamp,
+          previousPageX: 0,
+          previousPageY: 0,
+          touchActive: true,
+        },
+      ],
+    },
+  });
+
+  ReactTestRenderer.act(() => {
+    handle.props.onResponderGrant(touchEvent(0, 0, 1));
+    handle.props.onResponderMove(touchEvent(-100, -100, 2));
+  });
+  const topLeftAtEdge = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
+  const edgeStyle = Array.isArray(topLeftAtEdge.props.style)
+    ? Object.assign({}, ...topLeftAtEdge.props.style)
+    : topLeftAtEdge.props.style;
+  expect(edgeStyle.left).toBe('0%');
+  expect(edgeStyle.top).toBe('0%');
+
+  ReactTestRenderer.act(() => {
+    topLeftAtEdge.props.onResponderGrant(touchEvent(0, 0, 3));
+    topLeftAtEdge.props.onResponderMove(touchEvent(500, 500, 4));
+  });
+  const topLeftAtOppositeEdge = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
+  const oppositeEdgeStyle = Array.isArray(topLeftAtOppositeEdge.props.style)
+    ? Object.assign({}, ...topLeftAtOppositeEdge.props.style)
+    : topLeftAtOppositeEdge.props.style;
+  expect(oppositeEdgeStyle.left).toBe('100%');
+  expect(oppositeEdgeStyle.top).toBe('100%');
+});
+
 test('keeps corner responders stable while layout state changes', () => {
   const renderer = renderCrop();
   const handleBeforeLayout = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
@@ -202,4 +251,22 @@ test('uses a non-pressable gesture node for each crop handle', () => {
   const renderer = renderCrop();
   const handle = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
   expect(handle.type).toBe(View);
+});
+
+test('keeps crop handles compact while retaining a generous touch target', () => {
+  const renderer = renderCrop();
+  const handle = renderer.root.findByProps({accessibilityLabel: '左上角控制点'});
+  const handleStyle = Array.isArray(handle.props.style)
+    ? Object.assign({}, ...handle.props.style)
+    : handle.props.style;
+  const core = handle.findAllByType(View).find(node => node !== handle)!;
+  const coreStyle = Array.isArray(core.props.style)
+    ? Object.assign({}, ...core.props.style)
+    : core.props.style;
+
+  expect(handleStyle.width).toBe(48);
+  expect(handleStyle.height).toBe(48);
+  expect(coreStyle.width).toBe(28);
+  expect(coreStyle.height).toBe(28);
+  expect(handle.props.hitSlop).toBe(12);
 });

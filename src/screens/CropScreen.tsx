@@ -40,7 +40,8 @@ const DEFAULT_CORNERS: CropCorners = {
   bl: {x: 0.17, y: 0.86},
 };
 
-const HANDLE_SIZE = 44;
+const HANDLE_SIZE = 48;
+const HANDLE_CORE_SIZE = 28;
 const HANDLE_HIT_SLOP = 12;
 const EDGE_COLOR = theme.colors.actionPrimary;
 
@@ -82,7 +83,7 @@ function CropScreen({
   }
 
   function clamp(value: number): number {
-    return Math.max(0.03, Math.min(0.97, value));
+    return Math.max(0, Math.min(1, value));
   }
 
   function getHandleResponder(id: CornerId) {
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   },
   handle: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,107,0,0.16)',
+    backgroundColor: 'transparent',
     borderRadius: HANDLE_SIZE / 2,
     height: HANDLE_SIZE,
     justifyContent: 'center',
@@ -358,15 +359,15 @@ const styles = StyleSheet.create({
   handleCore: {
     backgroundColor: theme.colors.actionPrimary,
     borderColor: theme.colors.canvasWarm,
-    borderRadius: 18,
+    borderRadius: HANDLE_CORE_SIZE / 2,
     borderWidth: 3,
-    elevation: 5,
-    height: 36,
+    elevation: 4,
+    height: HANDLE_CORE_SIZE,
     shadowColor: theme.colors.inkPrimary,
-    shadowOffset: {height: 5, width: 5},
-    shadowOpacity: 0.9,
+    shadowOffset: {height: 3, width: 3},
+    shadowOpacity: 0.85,
     shadowRadius: 0,
-    width: 36,
+    width: HANDLE_CORE_SIZE,
   },
   bottomBar: {
     alignItems: 'center',

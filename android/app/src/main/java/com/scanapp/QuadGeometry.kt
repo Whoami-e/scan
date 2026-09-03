@@ -12,8 +12,7 @@ object QuadGeometry {
     if (points.any { point ->
         point.x < -NORMALIZED_TOLERANCE || point.x > 1.0 + NORMALIZED_TOLERANCE ||
           point.y < -NORMALIZED_TOLERANCE || point.y > 1.0 + NORMALIZED_TOLERANCE
-      })
-    ) return false
+      }) return false
 
     val signedArea = signedArea(points)
     if (signedArea < MIN_NORMALIZED_AREA) return false

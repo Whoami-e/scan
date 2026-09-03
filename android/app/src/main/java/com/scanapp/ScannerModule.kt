@@ -38,44 +38,26 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
 
   @ReactMethod
   fun detectDocumentEdges(imagePath: String, promise: Promise) {
-    var sample: Bitmap? = null
+    var bitmap: Bitmap? = null
     try {
-      val bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
-      val sampleWidth = min(320, bitmap.width)
-      val sampleHeight = max(1, (bitmap.height.toFloat() * sampleWidth / bitmap.width).toInt())
-      sample = Bitmap.createScaledBitmap(bitmap, sampleWidth, sampleHeight, true)
-      var borderTotal = 0L
-      var borderCount = 0
-      for (x in 0 until sampleWidth) {
-        borderTotal += luminance(sample.getPixel(x, 0)); borderTotal += luminance(sample.getPixel(x, sampleHeight - 1)); borderCount += 2
-      }
-      for (y in 1 until sampleHeight - 1) {
-        borderTotal += luminance(sample.getPixel(0, y)); borderTotal += luminance(sample.getPixel(sampleWidth - 1, y)); borderCount += 2
-      }
-      val threshold = (borderTotal.toFloat() / borderCount + 18f).coerceIn(110f, 235f)
-      var minX = sampleWidth; var minY = sampleHeight; var maxX = 0; var maxY = 0; var hits = 0
-      for (y in 0 until sampleHeight) for (x in 0 until sampleWidth) {
-        if (luminance(sample.getPixel(x, y)) >= threshold) {
-          minX = min(minX, x); minY = min(minY, y); maxX = max(maxX, x); maxY = max(maxY, y); hits += 1
-        }
-      }
-      val valid = hits > sampleWidth * sampleHeight * 0.12 && maxX - minX > sampleWidth * 0.35 && maxY - minY > sampleHeight * 0.35
-      val left = if (valid) minX.toDouble() / sampleWidth else 0.08
-      val top = if (valid) minY.toDouble() / sampleHeight else 0.08
-      val right = if (valid) maxX.toDouble() / sampleWidth else 0.92
-      val bottom = if (valid) maxY.toDouble() / sampleHeight else 0.92
+      bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
+      val detection = DocumentDetector.detect(bitmap!!)
+      val cornersPx = detection.cornersPx
       val corners = Arguments.createMap().apply {
-        putMap("topLeft", point(left, top)); putMap("topRight", point(right, top)); putMap("bottomRight", point(right, bottom)); putMap("bottomLeft", point(left, bottom))
+        putMap("topLeft", point(cornersPx[0].toDouble() / bitmap!!.width, cornersPx[1].toDouble() / bitmap!!.height))
+        putMap("topRight", point(cornersPx[2].toDouble() / bitmap!!.width, cornersPx[3].toDouble() / bitmap!!.height))
+        putMap("bottomRight", point(cornersPx[4].toDouble() / bitmap!!.width, cornersPx[5].toDouble() / bitmap!!.height))
+        putMap("bottomLeft", point(cornersPx[6].toDouble() / bitmap!!.width, cornersPx[7].toDouble() / bitmap!!.height))
       }
       promise.resolve(Arguments.createMap().apply {
         putMap("corners", corners)
-        putDouble("confidence", if (valid) 0.72 else 0.2)
-        putString("source", "fallback")
+        putDouble("confidence", detection.confidence.toDouble())
+        putString("source", detection.source.name.lowercase())
       })
     } catch (error: Exception) {
       promise.reject("DETECT_FAILED", error.message, error)
     } finally {
-      sample?.recycle()
+      bitmap?.recycle()
     }
   }
 
@@ -291,8 +273,6 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
   private fun safeSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_").take(96)
 
   private fun point(x: Double, y: Double) = Arguments.createMap().apply { putDouble("x", x); putDouble("y", y) }
-
-  private fun luminance(color: Int): Int = (0.299f * android.graphics.Color.red(color) + 0.587f * android.graphics.Color.green(color) + 0.114f * android.graphics.Color.blue(color)).toInt()
 
   private fun processImage(imagePath: String, corners: ReadableMap, promise: Promise) {
     try {
