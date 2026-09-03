@@ -62,6 +62,10 @@ function ExportScreen({
   }
 
   function exportPdf(): void {
+    if (pageCount <= 0) {
+      Alert.alert('暂无页面', '请先添加至少一页扫描内容。');
+      return;
+    }
     const normalized = fileName.trim();
     if (!normalized) {
       Alert.alert('请输入文件名', '文件名不能为空。');

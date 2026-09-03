@@ -151,7 +151,7 @@ test('updates a corner when its handle is dragged', () => {
   expect(handleStyle.top).toBe('20%');
 });
 
-test('allows crop corners to be dragged flush to the frame edges', () => {
+test('keeps a valid corner when an opposite-edge drag would self-intersect', () => {
   const renderer = renderCrop();
   const frame = renderer.root.findByProps({testID: 'crop-frame'});
   ReactTestRenderer.act(() => {
@@ -196,8 +196,46 @@ test('allows crop corners to be dragged flush to the frame edges', () => {
   const oppositeEdgeStyle = Array.isArray(topLeftAtOppositeEdge.props.style)
     ? Object.assign({}, ...topLeftAtOppositeEdge.props.style)
     : topLeftAtOppositeEdge.props.style;
-  expect(oppositeEdgeStyle.left).toBe('100%');
-  expect(oppositeEdgeStyle.top).toBe('100%');
+  expect(oppositeEdgeStyle.left).toBe('0%');
+  expect(oppositeEdgeStyle.top).toBe('0%');
+});
+
+test('rejects a drag that would reverse the crop polygon direction', () => {
+  const renderer = renderCrop();
+  const frame = renderer.root.findByProps({testID: 'crop-frame'});
+  ReactTestRenderer.act(() => {
+    frame.props.onLayout({nativeEvent: {layout: {width: 300, height: 500}}});
+  });
+
+  const topRight = renderer.root.findByProps({accessibilityLabel: '右上角控制点'});
+  const touchEvent = (x: number, y: number, timestamp: number) => ({
+    touchHistory: {
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: timestamp,
+      numberActiveTouches: 1,
+      touchBank: [
+        {
+          currentPageX: x,
+          currentPageY: y,
+          currentTimeStamp: timestamp,
+          previousPageX: 0,
+          previousPageY: 0,
+          touchActive: true,
+        },
+      ],
+    },
+  });
+  ReactTestRenderer.act(() => {
+    topRight.props.onResponderGrant(touchEvent(0, 0, 1));
+    topRight.props.onResponderMove(touchEvent(-240, 420, 2));
+  });
+
+  const updatedTopRight = renderer.root.findByProps({accessibilityLabel: '右上角控制点'});
+  const style = Array.isArray(updatedTopRight.props.style)
+    ? Object.assign({}, ...updatedTopRight.props.style)
+    : updatedTopRight.props.style;
+  expect(Number.parseFloat(style.left)).toBeCloseTo(86, 5);
+  expect(Number.parseFloat(style.top)).toBeCloseTo(14, 5);
 });
 
 test('keeps corner responders stable while layout state changes', () => {

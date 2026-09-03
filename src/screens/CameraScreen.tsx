@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -22,8 +22,8 @@ const NativeCameraPreview = requireNativeComponent<{
 
 export interface CameraScreenProps {
   onBack?: () => void;
-  onCapture?: () => void;
-  onImport?: () => void;
+  onCapture?: () => void | Promise<void>;
+  onImport?: () => void | Promise<void>;
   onPermission?: () => void;
   onFlashToggle?: (enabled: boolean) => void;
   permissionDenied?: boolean;
@@ -47,6 +47,7 @@ function CameraScreen({
 }: CameraScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [flashOn, setFlashOn] = useState(false);
+  const actionInFlight = useRef(false);
   const statusLabel = permissionDenied ? '相机权限已拒绝' : cameraError ?? '已检测到文档边缘';
 
   function toggleFlash(): void {
@@ -56,11 +57,29 @@ function CameraScreen({
   }
 
   function handleCapture(): void {
-    if (!isProcessing) onCapture?.();
+    if (isProcessing || actionInFlight.current) return;
+    actionInFlight.current = true;
+    const result = onCapture?.();
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      void result.finally(() => {
+        actionInFlight.current = false;
+      });
+    } else {
+      actionInFlight.current = false;
+    }
   }
 
   function handleImport(): void {
-    if (!isProcessing) onImport?.();
+    if (isProcessing || actionInFlight.current) return;
+    actionInFlight.current = true;
+    const result = onImport?.();
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      void result.finally(() => {
+        actionInFlight.current = false;
+      });
+    } else {
+      actionInFlight.current = false;
+    }
   }
 
   return (

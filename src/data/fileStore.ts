@@ -21,10 +21,9 @@ export interface FileStore {
 }
 
 /**
- * 工程骨架阶段的占位实现。
+ * 通过 ScannerModule 访问 Android 沙盒文件工作区。
  *
- * 先明确“未接入”而不是静默伪造成功，防止页面在原生能力尚未完成时误以为
- * 图片真的已经保存。M3 接入真实沙盒存储后，替换这个对象即可。
+ * 这里保留薄适配层，页面不直接依赖 NativeModules，也不持有文件生命周期。
  */
 export const fileStore: FileStore = {
   async createWorkspace(documentId): Promise<string> {

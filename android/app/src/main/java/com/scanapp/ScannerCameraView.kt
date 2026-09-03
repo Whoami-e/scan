@@ -21,6 +21,9 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -32,7 +35,10 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   private var previewRequest: android.hardware.camera2.CaptureRequest? = null
   private var flashOn = false
   private var imageReader: ImageReader? = null
-  private var pendingCapture: Promise? = null
+  private val captureLock = Any()
+  private var pendingCapture: PendingCapture? = null
+  private val captureExecutor = Executors.newSingleThreadExecutor()
+  private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
   private var cameraEnabled = true
   private var openingCamera = false
   private var sensorOrientation = 0
@@ -65,6 +71,13 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
     }
   }
 
+  fun onHostPause() {
+    post {
+      clearPendingCapture("CAMERA_PAUSED", "相机已暂停")
+      closeCamera()
+    }
+  }
+
   fun setFlashOn(enabled: Boolean) {
     flashOn = enabled
     session?.let { startPreview(it) }
@@ -80,14 +93,19 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
       return
     }
     try {
-      if (pendingCapture != null) {
+      val capture = synchronized(captureLock) {
+        if (pendingCapture != null) {
+          null
+        } else {
+          PendingCapture(promise).also { pendingCapture = it }
+        }
+      }
+      if (capture == null) {
         promise.reject("CAPTURE_BUSY", "正在保存上一张照片")
         return
       }
-      pendingCapture = promise
       val activeSession = session ?: run {
-        pendingCapture = null
-        promise.reject("CAMERA_NOT_READY", "相机拍摄会话尚未准备好")
+        clearPendingCapture("CAMERA_NOT_READY", "相机拍摄会话尚未准备好")
         return
       }
       val request = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
@@ -100,8 +118,7 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
       // Restarting it here causes a visible Surface/AE transition on some devices.
       activeSession.capture(request, null, null)
     } catch (error: Exception) {
-      pendingCapture = null
-      promise.reject("CAPTURE_FAILED", error.message, error)
+      settleCapture(captureFor(promise), error)
     }
   }
 
@@ -126,28 +143,27 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
     imageReader = ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 2).apply {
       setOnImageAvailableListener({ reader ->
         val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
-        val capturePromise = pendingCapture
+        val capture = synchronized(captureLock) { pendingCapture }
+        val bytes: ByteArray
         try {
           val buffer = image.planes[0].buffer
-          val bytes = ByteArray(buffer.remaining())
+          bytes = ByteArray(buffer.remaining())
           buffer.get(bytes)
-          val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw IllegalStateException("照片无法读取")
-          val imageRotationDegrees = calculateImageRotation()
-          val normalizedBitmap = rotateBitmap(bitmap, imageRotationDegrees)
-          val output = File(context.cacheDir, "scan-${System.currentTimeMillis()}.jpg")
-          FileOutputStream(output).use { stream ->
-            normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, 94, stream)
-          }
-          if (normalizedBitmap !== bitmap) bitmap.recycle()
-          normalizedBitmap.recycle()
-          capturePromise?.resolve(com.facebook.react.bridge.Arguments.createMap().apply { putString("imagePath", "file://${output.absolutePath}") })
-        } catch (error: Exception) {
-          capturePromise?.reject("CAPTURE_FAILED", error.message, error)
         } finally {
           image.close()
-          pendingCapture = null
         }
+        if (capture == null) return@setOnImageAvailableListener
+        val future = captureExecutor.submit { processCaptureImage(bytes, capture) }
+        capture.future = future
+        mainHandler.postDelayed({
+          if (capture.settled.compareAndSet(false, true)) {
+            future.cancel(true)
+            synchronized(captureLock) {
+              if (pendingCapture === capture) pendingCapture = null
+            }
+            capture.promise.reject("CAPTURE_TIMEOUT", "照片处理超时，请重试")
+          }
+        }, CAPTURE_PROCESSING_TIMEOUT_MS)
       }, null)
     }
     openingCamera = true
@@ -247,14 +263,7 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   }
 
   private fun calculateImageRotation(): Int {
-   val displayRotation = display?.rotation ?: Surface.ROTATION_0
-    val displayDegrees = when (displayRotation) {
-      Surface.ROTATION_90 -> 90
-      Surface.ROTATION_180 -> 180
-      Surface.ROTATION_270 -> 270
-      else -> 0
-    }
-    return (sensorOrientation - displayDegrees + 360) % 360
+    return imageRotationFor(sensorOrientation, display?.rotation ?: Surface.ROTATION_0)
   }
 
   private fun rotateBitmap(source: Bitmap, degrees: Int): Bitmap {
@@ -274,9 +283,65 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
     imageReader?.close()
     imageReader = null
     previewSize = null
-    pendingCapture?.reject("CAMERA_CLOSED", "相机已关闭")
-    pendingCapture = null
+    clearPendingCapture("CAMERA_CLOSED", "相机已关闭")
   }
+
+  private fun processCaptureImage(bytes: ByteArray, capture: PendingCapture) {
+    var bitmap: Bitmap? = null
+    var normalizedBitmap: Bitmap? = null
+    try {
+      bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        ?: throw IllegalStateException("照片无法读取")
+      val imageRotationDegrees = calculateImageRotation()
+      normalizedBitmap = rotateBitmap(bitmap, imageRotationDegrees)
+      val output = File(context.cacheDir, "scan-${System.currentTimeMillis()}.jpg")
+      FileOutputStream(output).use { stream ->
+        if (!normalizedBitmap.compress(Bitmap.CompressFormat.JPEG, 94, stream)) {
+          throw IllegalStateException("照片保存失败")
+        }
+      }
+      mainHandler.post {
+        settleCapture(capture, com.facebook.react.bridge.Arguments.createMap().apply {
+          putString("imagePath", "file://${output.absolutePath}")
+        })
+      }
+    } catch (error: Exception) {
+      mainHandler.post { settleCapture(capture, error) }
+    } finally {
+      if (normalizedBitmap != null && normalizedBitmap !== bitmap) normalizedBitmap.recycle()
+      bitmap?.recycle()
+    }
+  }
+
+  private fun captureFor(promise: Promise): PendingCapture? = synchronized(captureLock) {
+    pendingCapture?.takeIf { it.promise === promise }
+  }
+
+  private fun clearPendingCapture(code: String, message: String) {
+    val capture = synchronized(captureLock) {
+      pendingCapture.also { pendingCapture = null }
+    } ?: return
+    capture.future?.cancel(true)
+    if (capture.settled.compareAndSet(false, true)) capture.promise.reject(code, message)
+  }
+
+  private fun settleCapture(capture: PendingCapture?, result: Any) {
+    if (capture == null || !capture.settled.compareAndSet(false, true)) return
+    synchronized(captureLock) {
+      if (pendingCapture === capture) pendingCapture = null
+    }
+    if (result is Throwable) {
+      capture.promise.reject("CAPTURE_FAILED", result.message, result)
+    } else {
+      capture.promise.resolve(result)
+    }
+  }
+
+  private class PendingCapture(val promise: Promise) {
+    val settled = AtomicBoolean(false)
+    var future: Future<*>? = null
+  }
+
   override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) { openCamera() }
   override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) { applyPreviewTransform(w, h) }
   override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { closeCamera(); return true }
@@ -284,6 +349,18 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
 
   companion object {
     const val REQUEST_CAMERA = 4101
+    const val CAPTURE_PROCESSING_TIMEOUT_MS = 15_000L
     var activeView: ScannerCameraView? = null
+
+    @JvmStatic
+    fun imageRotationFor(sensorOrientation: Int, displayRotation: Int): Int {
+      val displayDegrees = when (displayRotation) {
+        Surface.ROTATION_90 -> 90
+        Surface.ROTATION_180 -> 180
+        Surface.ROTATION_270 -> 270
+        else -> 0
+      }
+      return (sensorOrientation - displayDegrees + 360) % 360
+    }
   }
 }

@@ -8,10 +8,6 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.Arguments
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Matrix
 import android.net.Uri
@@ -19,7 +15,6 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.max
 import kotlin.math.min
 
 class ScannerModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
@@ -88,63 +83,43 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
 
   @ReactMethod
   fun enhanceImage(imagePath: String, mode: String, promise: Promise) {
+    var bitmap: Bitmap? = null
+    var result: Bitmap? = null
+    var output: File? = null
     try {
-      val bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
-      val output = File(context.cacheDir, "scan-enhanced-${System.currentTimeMillis()}.jpg")
-      val result = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-      val canvas = Canvas(result)
-      val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-      val matrix = ColorMatrix()
-      when (mode) {
-        "grayscale" -> matrix.setSaturation(0f)
-        "enhanced" -> matrix.set(floatArrayOf(
-          1.12f, 0f, 0f, 0f, -8f,
-          0f, 1.12f, 0f, 0f, -8f,
-          0f, 0f, 1.12f, 0f, -8f,
-          0f, 0f, 0f, 1f, 0f,
-        ))
-      }
-      paint.colorFilter = ColorMatrixColorFilter(matrix)
-      canvas.drawBitmap(bitmap, 0f, 0f, paint)
-      FileOutputStream(output).use { stream -> result.compress(Bitmap.CompressFormat.JPEG, 92, stream) }
-      promise.resolve(Arguments.createMap().apply { putString("processedImagePath", "file://${output.absolutePath}") })
-    } catch (error: Exception) {
+      bitmap = loadBitmapForEnhancement(imagePath) ?: throw IllegalStateException("图片无法读取")
+      result = ImageEnhancer.apply(bitmap!!, mode)
+      output = File(context.cacheDir, "scan-enhanced-${System.currentTimeMillis()}.jpg")
+      FileOutputStream(output!!).use { stream -> check(result!!.compress(Bitmap.CompressFormat.JPEG, 92, stream)) { "增强图片保存失败" } }
+      promise.resolve(Arguments.createMap().apply { putString("processedImagePath", "file://${output!!.absolutePath}") })
+    } catch (error: Throwable) {
+      output?.delete()
       promise.reject("ENHANCE_FAILED", error.message, error)
+    } finally {
+      result?.takeIf { it !== bitmap }?.recycle()
+      bitmap?.recycle()
     }
   }
 
   @ReactMethod
   fun createPdf(pageImagePaths: com.facebook.react.bridge.ReadableArray, outputName: String, options: ReadableMap, promise: Promise) {
     try {
-      val safeName = outputName.replace(Regex("[^a-zA-Z0-9一-龥._ -]"), "_").let { if (it.endsWith(".pdf", true)) it else "$it.pdf" }
-      val output = File(context.filesDir, safeName)
-      val requestedOrientation = if (options.hasKey("orientation")) options.getString("orientation") else "auto"
-      val pdf = android.graphics.pdf.PdfDocument()
-      for (index in 0 until pageImagePaths.size()) {
-        val path = pageImagePaths.getString(index) ?: continue
-        val bitmap = loadBitmap(path) ?: continue
-        val landscape = when (requestedOrientation) {
-          "landscape" -> true
-          "portrait" -> false
-          else -> bitmap.width > bitmap.height
-        }
-        val pageWidth = if (landscape) 842 else 595
-        val pageHeight = if (landscape) 595 else 842
-        val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, index + 1).create()
-        val page = pdf.startPage(pageInfo)
-        val canvas = page.canvas
-        val margin = (pageWidth * 10f / 210f)
-        val target = RectF(margin, margin, pageWidth - margin, pageHeight - margin)
-        val scale = min(target.width() / bitmap.width, target.height() / bitmap.height)
-        val drawW = bitmap.width * scale
-        val drawH = bitmap.height * scale
-        val left = (pageWidth - drawW) / 2f
-        val top = (pageHeight - drawH) / 2f
-        canvas.drawBitmap(bitmap, null, RectF(left, top, left + drawW, top + drawH), null)
-        pdf.finishPage(page)
+      val paths = (0 until pageImagePaths.size()).mapNotNull { pageImagePaths.getString(it) }
+      val requestedOrientation = when (options.getString("orientation") ?: "auto") {
+        "landscape" -> PdfExporter.Orientation.LANDSCAPE
+        "portrait" -> PdfExporter.Orientation.PORTRAIT
+        else -> PdfExporter.Orientation.AUTO
       }
-      FileOutputStream(output).use { pdf.writeTo(it) }
-      pdf.close()
+      val output = PdfExporter.create(
+        context = context,
+        pageImages = paths.map { path -> File(Uri.parse(path).path ?: path) },
+        outputName = outputName,
+        options = PdfExporter.Options(
+          marginMillimeters = optionalDouble(options, "marginMillimeters", 10.0).toInt(),
+          orientation = requestedOrientation,
+          jpegQuality = optionalDouble(options, "jpegQuality", 92.0).toInt(),
+        ),
+      )
       promise.resolve(Arguments.createMap().apply { putString("pdfPath", "file://${output.absolutePath}") })
     } catch (error: Exception) {
       promise.reject("PDF_FAILED", error.message, error)
@@ -211,7 +186,7 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
   @ReactMethod
   fun createWorkspace(documentId: String, promise: Promise) {
     try {
-      val workspace = File(context.filesDir, "scan/${safeSegment(documentId)}").apply { mkdirs() }
+      val workspace = ScanFileStore(context).createWorkspace(documentId)
       promise.resolve(workspace.absolutePath)
     } catch (error: Exception) {
       promise.reject("WORKSPACE_FAILED", error.message, error)
@@ -221,7 +196,7 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
   @ReactMethod
   fun deleteWorkspace(documentId: String, promise: Promise) {
     try {
-      File(context.filesDir, "scan/${safeSegment(documentId)}").deleteRecursively()
+      ScanFileStore(context).deleteWorkspace(documentId)
       promise.resolve(null)
     } catch (error: Exception) {
       promise.reject("WORKSPACE_DELETE_FAILED", error.message, error)
@@ -255,16 +230,7 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
   @ReactMethod
   fun savePageImage(documentId: String, pageId: String, imagePath: String, kind: String, promise: Promise) {
     try {
-      val workspace = File(context.filesDir, "scan/${safeSegment(documentId)}").apply { mkdirs() }
-      val sourceUri = Uri.parse(imagePath)
-      val extension = if (kind == "processed") "-processed.jpg" else "-original.jpg"
-      val destination = File(workspace, safeSegment(pageId) + extension)
-      if (sourceUri.scheme == "content") {
-        context.contentResolver.openInputStream(sourceUri)?.use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
-      } else {
-        File(sourceUri.path ?: imagePath).copyTo(destination, overwrite = true)
-      }
-      promise.resolve("file://${destination.absolutePath}")
+      promise.resolve(ScanFileStore(context).savePageImage(documentId, pageId, imagePath, kind).toString())
     } catch (error: Exception) {
       promise.reject("PAGE_SAVE_FAILED", error.message, error)
     }
@@ -272,36 +238,30 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
 
   private fun safeSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_").take(96)
 
+  private fun optionalDouble(options: ReadableMap, key: String, fallback: Double): Double =
+    if (options.hasKey(key) && !options.isNull(key)) options.getDouble(key) else fallback
+
   private fun point(x: Double, y: Double) = Arguments.createMap().apply { putDouble("x", x); putDouble("y", y) }
 
   private fun processImage(imagePath: String, corners: ReadableMap, promise: Promise) {
+    var bitmap: Bitmap? = null
+    var outputBitmap: Bitmap? = null
+    var output: File? = null
     try {
-      val bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
+      bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
       val quad = readNormalizedQuad(corners)
-      if (!QuadGeometry.isValidNormalizedQuad(quad)) {
-        throw IllegalArgumentException("四角坐标无效")
+      outputBitmap = PerspectiveWarper.warp(bitmap!!, quad)
+      output = File(context.cacheDir, "scan-crop-${System.currentTimeMillis()}.jpg")
+      FileOutputStream(output).use { stream ->
+        check(outputBitmap!!.compress(Bitmap.CompressFormat.JPEG, 94, stream)) { "裁剪图片保存失败" }
       }
-      val tl = quad.topLeft
-      val tr = quad.topRight
-      val br = quad.bottomRight
-      val bl = quad.bottomLeft
-      val src = floatArrayOf(
-        (tl.x * bitmap.width).toFloat(), (tl.y * bitmap.height).toFloat(),
-        (tr.x * bitmap.width).toFloat(), (tr.y * bitmap.height).toFloat(),
-        (br.x * bitmap.width).toFloat(), (br.y * bitmap.height).toFloat(),
-        (bl.x * bitmap.width).toFloat(), (bl.y * bitmap.height).toFloat(),
-      )
-      val outW = max(1, ((src[2] - src[0] + src[4] - src[6]) / 2f).toInt())
-      val outH = max(1, ((src[5] - src[1] + src[7] - src[3]) / 2f).toInt())
-      val outputBitmap = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
-      val matrix = android.graphics.Matrix()
-      matrix.setPolyToPoly(src, 0, floatArrayOf(0f, 0f, outW.toFloat(), 0f, outW.toFloat(), outH.toFloat(), 0f, outH.toFloat()), 0, 4)
-      Canvas(outputBitmap).drawBitmap(bitmap, matrix, Paint(Paint.ANTI_ALIAS_FLAG))
-      val output = File(context.cacheDir, "scan-crop-${System.currentTimeMillis()}.jpg")
-      FileOutputStream(output).use { stream -> outputBitmap.compress(Bitmap.CompressFormat.JPEG, 94, stream) }
       promise.resolve(Arguments.createMap().apply { putString("processedImagePath", "file://${output.absolutePath}") })
     } catch (error: Exception) {
+      output?.delete()
       promise.reject("CROP_FAILED", error.message, error)
+    } finally {
+      outputBitmap?.recycle()
+      bitmap?.recycle()
     }
   }
 
@@ -311,6 +271,29 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
       context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
     } else {
       BitmapFactory.decodeFile(uri.path ?: path)
+    }
+  }
+
+  private fun loadBitmapForEnhancement(path: String): Bitmap? {
+    val uri = Uri.parse(path)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    if (uri.scheme == "content") {
+      context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    } else {
+      BitmapFactory.decodeFile(uri.path ?: path, bounds)
+    }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+    var sample = 1
+    while (kotlin.math.max(bounds.outWidth, bounds.outHeight) / sample > 4096) sample *= 2
+    val options = BitmapFactory.Options().apply {
+      inSampleSize = sample
+      inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    return if (uri.scheme == "content") {
+      context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    } else {
+      BitmapFactory.decodeFile(uri.path ?: path, options)
     }
   }
 

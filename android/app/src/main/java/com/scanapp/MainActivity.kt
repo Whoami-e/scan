@@ -47,4 +47,9 @@ class MainActivity : ReactActivity() {
     super.onResume()
     ScannerCameraView.activeView?.onHostResume()
   }
+
+  override fun onPause() {
+    ScannerCameraView.activeView?.onHostPause()
+    super.onPause()
+  }
 }

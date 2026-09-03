@@ -173,6 +173,12 @@ npm run android
 
 `npm run android` 需要本机已安装 Android SDK，并配置 `ANDROID_HOME` 或 `ANDROID_SDK_ROOT`。当前工作环境尚未配置这两个变量，因此只能先完成 JavaScript 校验，不能据此宣称 Android 真机或模拟器构建通过。
 
+### Release 依赖与发布守卫
+
+Android 使用 `org.opencv:opencv:4.12.0`（Apache License 2.0）。版权和许可证追溯见根目录的 `LICENSE`、`NOTICE` 与 `docs/third-party/makeacopy-notices.md`。
+
+`./gradlew :app:assembleRelease` 会在构建完成后自动运行发布内容守卫。也可以手动运行 `scripts/verify-release-contents.sh path/to/release.apk`；它会拒绝 MakeACopy 标识、测试资产、OCR/模型资源、调试日志标记和完整本地路径。
+
 原型测试仍然可以单独执行：
 
 目的：验证交互原型的页面地标、关键文案和声明的交互动作是否仍然完整。

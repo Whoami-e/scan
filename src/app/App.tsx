@@ -171,7 +171,10 @@ function App(): React.JSX.Element {
       const result = await scannerModule.enhanceImage(sourcePath, mode);
       if (enhanceRequestRef.current === requestId) setPendingProcessedPath(result.processedImagePath);
     } catch {
-      if (enhanceRequestRef.current === requestId) setPendingProcessedPath(sourcePath);
+      if (enhanceRequestRef.current === requestId) {
+        setPendingProcessedPath(sourcePath);
+        setPendingMode('original');
+      }
     }
   }
 

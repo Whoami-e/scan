@@ -12,7 +12,7 @@ import ExportScreen from '../src/screens/ExportScreen';
 function renderExport(props: React.ComponentProps<typeof ExportScreen> = {}) {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<ExportScreen {...props} pageCount={3} />);
+    renderer = ReactTestRenderer.create(<ExportScreen pageCount={3} {...props} />);
   });
   return renderer!;
 }
@@ -20,6 +20,31 @@ function renderExport(props: React.ComponentProps<typeof ExportScreen> = {}) {
 test('creates a numbered PDF name when the requested name already exists', () => {
   expect(nextAvailablePdfName('报告.pdf', ['报告.pdf', '报告 (1).pdf'])).toBe('报告 (2).pdf');
   expect(nextAvailablePdfName('报告', ['报告.pdf'])).toBe('报告 (1).pdf');
+});
+
+test('keeps the scan project editable after a successful export', async () => {
+  const onExport = jest.fn().mockResolvedValue(undefined);
+  const renderer = renderExport({onExport});
+
+  await ReactTestRenderer.act(async () => {
+    renderer.root.findByProps({accessibilityLabel: '导出 PDF'}).props.onPress();
+    await Promise.resolve();
+  });
+
+  expect(renderer.root.findAll(node => node.props.children === 'PDF 已保存，扫描工程仍可继续编辑。').length).toBeGreaterThan(0);
+  expect(onExport).toHaveBeenCalledTimes(1);
+});
+
+test('does not export an empty page list', async () => {
+  const onExport = jest.fn().mockResolvedValue(undefined);
+  const renderer = renderExport({pageCount: 0, onExport});
+
+  await ReactTestRenderer.act(async () => {
+    renderer.root.findByProps({accessibilityLabel: '导出 PDF'}).props.onPress();
+    await Promise.resolve();
+  });
+
+  expect(onExport).not.toHaveBeenCalled();
 });
 
 test('matches the UX export form landmarks', () => {

@@ -54,20 +54,20 @@ android/app/src/main/java/com/scanapp/
 - `data class ScanPoint(val x: Double, val y: Double)` 和 `data class ScanQuad(val topLeft: ScanPoint, val topRight: ScanPoint, val bottomRight: ScanPoint, val bottomLeft: ScanPoint)` 是原生层统一的数据结构。
 - `QuadGeometry.isValidNormalizedQuad(quad: ScanQuad): Boolean` 检查有限数值、范围容忍度、凸性、顺时针角点顺序和最小面积。
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   在纯 JVM JUnit 中增加归一化四角边界用例：正常梯形通过；重复点、反向顺序、自交四边形、面积过小和 NaN 输入失败。RN 测试断言原生检测结果的可选 `source` 不影响现有页面流程。
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
   Run: `npm test -- --runInBand __tests__/AppCaptureFallback.test.tsx`; `cd android && ./gradlew :app:testDebugUnitTest --tests com.scanapp.QuadGeometryTest`
   Expected: 新增的几何断言或返回字段断言失败，因为原生校验函数和返回字段尚未存在。
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
   将校验放在 `QuadGeometry`，`ScannerModule` 只负责把归一化坐标转换为 Bitmap 像素坐标并调用它；保留现有 JS API 的异步形态。
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
   Run: `npm test -- --runInBand __tests__/AppCaptureFallback.test.tsx`; `npx tsc --noEmit`; `cd android && ./gradlew :app:testDebugUnitTest --tests com.scanapp.QuadGeometryTest`
   Expected: PASS。

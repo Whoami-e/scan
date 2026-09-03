@@ -17,3 +17,31 @@ test('reuses and releases the preview Surface with the camera lifecycle', () => 
   expect(cameraView).toContain('previewSurface?.release()');
   expect(cameraView).toContain('previewSurface ?: return');
 });
+
+test('clears a pending capture when the host pauses and resumes safely', () => {
+  expect(cameraView).toContain('fun onHostPause()');
+  expect(cameraView).toContain('clearPendingCapture');
+  expect(cameraView).toContain('clearPendingCapture("CAMERA_PAUSED"');
+});
+
+test('processes captured JPEGs on a dedicated executor with a bounded timeout', () => {
+  expect(cameraView).toContain('Executors.newSingleThreadExecutor');
+  expect(cameraView).toContain('CAPTURE_PROCESSING_TIMEOUT_MS');
+  expect(cameraView).toContain('processCaptureImage');
+});
+
+test('guards capture completion so a promise is settled at most once', () => {
+  expect(cameraView).toContain('AtomicBoolean');
+  expect(cameraView).toContain('compareAndSet(false, true)');
+  expect(cameraView).toContain('clearPendingCapture');
+});
+
+test('forwards host pause to the active camera view', () => {
+  const activity = fs.readFileSync(
+    path.join(process.cwd(), 'android/app/src/main/java/com/scanapp/MainActivity.kt'),
+    'utf8',
+  );
+
+  expect(activity).toContain('override fun onPause()');
+  expect(activity).toContain('ScannerCameraView.activeView?.onHostPause()');
+});
