@@ -32,7 +32,8 @@ jest.mock('../src/native/scannerModule', () => ({
 }));
 
 import App from '../App';
-import {captureDocument} from '../src/native/mediaPicker';
+import {captureDocument, importDocuments} from '../src/native/mediaPicker';
+import {scannerModule} from '../src/native/scannerModule';
 
 test('keeps capture inside the app when the embedded camera fails', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -49,4 +50,34 @@ test('keeps capture inside the app when the embedded camera fails', async () => 
   expect(captureDocument).not.toHaveBeenCalled();
   expect(root.findAll(node => node.props.children === '相机拍摄失败，请重试或从相册导入').length).toBeGreaterThan(0);
   expect(root.findByProps({accessibilityLabel: '相机画面区域'})).toBeDefined();
+});
+
+test('keeps the crop flow when edge detection reports an optional source', async () => {
+  jest.mocked(importDocuments).mockResolvedValueOnce({
+    cancelled: false,
+    imagePaths: ['file:///tmp/gallery.jpg'],
+  });
+  jest.mocked(scannerModule.detectDocumentEdges).mockResolvedValueOnce({
+    corners: {
+      topLeft: {x: 0.1, y: 0.1},
+      topRight: {x: 0.9, y: 0.1},
+      bottomRight: {x: 0.9, y: 0.9},
+      bottomLeft: {x: 0.1, y: 0.9},
+    },
+    confidence: 0.2,
+    source: 'fallback',
+  });
+
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  const root = renderer!.root;
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '扫描'}).props.onPress());
+
+  await ReactTestRenderer.act(async () => {
+    root.findByProps({accessibilityLabel: '从相册导入'}).props.onPress();
+  });
+
+  expect(root.findByProps({accessibilityLabel: '待裁剪照片'}).props.source).toEqual({uri: 'file:///tmp/gallery.jpg'});
 });

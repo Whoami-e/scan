@@ -38,38 +38,26 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
 
   @ReactMethod
   fun detectDocumentEdges(imagePath: String, promise: Promise) {
+    var bitmap: Bitmap? = null
     try {
-      val bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
-      val sampleWidth = min(320, bitmap.width)
-      val sampleHeight = max(1, (bitmap.height.toFloat() * sampleWidth / bitmap.width).toInt())
-      val sample = Bitmap.createScaledBitmap(bitmap, sampleWidth, sampleHeight, true)
-      var borderTotal = 0L
-      var borderCount = 0
-      for (x in 0 until sampleWidth) {
-        borderTotal += luminance(sample.getPixel(x, 0)); borderTotal += luminance(sample.getPixel(x, sampleHeight - 1)); borderCount += 2
-      }
-      for (y in 1 until sampleHeight - 1) {
-        borderTotal += luminance(sample.getPixel(0, y)); borderTotal += luminance(sample.getPixel(sampleWidth - 1, y)); borderCount += 2
-      }
-      val threshold = (borderTotal.toFloat() / borderCount + 18f).coerceIn(110f, 235f)
-      var minX = sampleWidth; var minY = sampleHeight; var maxX = 0; var maxY = 0; var hits = 0
-      for (y in 0 until sampleHeight) for (x in 0 until sampleWidth) {
-        if (luminance(sample.getPixel(x, y)) >= threshold) {
-          minX = min(minX, x); minY = min(minY, y); maxX = max(maxX, x); maxY = max(maxY, y); hits += 1
-        }
-      }
-      val valid = hits > sampleWidth * sampleHeight * 0.12 && maxX - minX > sampleWidth * 0.35 && maxY - minY > sampleHeight * 0.35
-      val left = if (valid) minX.toDouble() / sampleWidth else 0.08
-      val top = if (valid) minY.toDouble() / sampleHeight else 0.08
-      val right = if (valid) maxX.toDouble() / sampleWidth else 0.92
-      val bottom = if (valid) maxY.toDouble() / sampleHeight else 0.92
+      bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
+      val detection = DocumentDetector.detect(bitmap!!)
+      val cornersPx = detection.cornersPx
       val corners = Arguments.createMap().apply {
-        putMap("topLeft", point(left, top)); putMap("topRight", point(right, top)); putMap("bottomRight", point(right, bottom)); putMap("bottomLeft", point(left, bottom))
+        putMap("topLeft", point(cornersPx[0].toDouble() / bitmap!!.width, cornersPx[1].toDouble() / bitmap!!.height))
+        putMap("topRight", point(cornersPx[2].toDouble() / bitmap!!.width, cornersPx[3].toDouble() / bitmap!!.height))
+        putMap("bottomRight", point(cornersPx[4].toDouble() / bitmap!!.width, cornersPx[5].toDouble() / bitmap!!.height))
+        putMap("bottomLeft", point(cornersPx[6].toDouble() / bitmap!!.width, cornersPx[7].toDouble() / bitmap!!.height))
       }
-      promise.resolve(Arguments.createMap().apply { putMap("corners", corners); putDouble("confidence", if (valid) 0.72 else 0.2) })
-      sample.recycle()
+      promise.resolve(Arguments.createMap().apply {
+        putMap("corners", corners)
+        putDouble("confidence", detection.confidence.toDouble())
+        putString("source", detection.source.name.lowercase())
+      })
     } catch (error: Exception) {
       promise.reject("DETECT_FAILED", error.message, error)
+    } finally {
+      bitmap?.recycle()
     }
   }
 
@@ -286,20 +274,22 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
 
   private fun point(x: Double, y: Double) = Arguments.createMap().apply { putDouble("x", x); putDouble("y", y) }
 
-  private fun luminance(color: Int): Int = (0.299f * android.graphics.Color.red(color) + 0.587f * android.graphics.Color.green(color) + 0.114f * android.graphics.Color.blue(color)).toInt()
-
   private fun processImage(imagePath: String, corners: ReadableMap, promise: Promise) {
     try {
       val bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
-      val tl = corners.getMap("tl") ?: corners.getMap("topLeft") ?: throw IllegalArgumentException("缺少左上角")
-      val tr = corners.getMap("tr") ?: corners.getMap("topRight") ?: throw IllegalArgumentException("缺少右上角")
-      val br = corners.getMap("br") ?: corners.getMap("bottomRight") ?: throw IllegalArgumentException("缺少右下角")
-      val bl = corners.getMap("bl") ?: corners.getMap("bottomLeft") ?: throw IllegalArgumentException("缺少左下角")
+      val quad = readNormalizedQuad(corners)
+      if (!QuadGeometry.isValidNormalizedQuad(quad)) {
+        throw IllegalArgumentException("四角坐标无效")
+      }
+      val tl = quad.topLeft
+      val tr = quad.topRight
+      val br = quad.bottomRight
+      val bl = quad.bottomLeft
       val src = floatArrayOf(
-        tl.getDouble("x").toFloat() * bitmap.width, tl.getDouble("y").toFloat() * bitmap.height,
-        tr.getDouble("x").toFloat() * bitmap.width, tr.getDouble("y").toFloat() * bitmap.height,
-        br.getDouble("x").toFloat() * bitmap.width, br.getDouble("y").toFloat() * bitmap.height,
-        bl.getDouble("x").toFloat() * bitmap.width, bl.getDouble("y").toFloat() * bitmap.height,
+        (tl.x * bitmap.width).toFloat(), (tl.y * bitmap.height).toFloat(),
+        (tr.x * bitmap.width).toFloat(), (tr.y * bitmap.height).toFloat(),
+        (br.x * bitmap.width).toFloat(), (br.y * bitmap.height).toFloat(),
+        (bl.x * bitmap.width).toFloat(), (bl.y * bitmap.height).toFloat(),
       )
       val outW = max(1, ((src[2] - src[0] + src[4] - src[6]) / 2f).toInt())
       val outH = max(1, ((src[5] - src[1] + src[7] - src[3]) / 2f).toInt())
@@ -322,5 +312,19 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
     } else {
       BitmapFactory.decodeFile(uri.path ?: path)
     }
+  }
+
+  private fun readNormalizedQuad(corners: ReadableMap): ScanQuad {
+    fun readPoint(primary: String, legacy: String): ScanPoint {
+      val map = corners.getMap(primary) ?: corners.getMap(legacy)
+        ?: throw IllegalArgumentException("缺少$primary")
+      return ScanPoint(map.getDouble("x"), map.getDouble("y"))
+    }
+    return ScanQuad(
+      topLeft = readPoint("topLeft", "tl"),
+      topRight = readPoint("topRight", "tr"),
+      bottomRight = readPoint("bottomRight", "br"),
+      bottomLeft = readPoint("bottomLeft", "bl"),
+    )
   }
 }
