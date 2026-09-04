@@ -136,7 +136,8 @@ function App(): React.JSX.Element {
     try {
       const result = await importDocuments();
       if (result.error) setCameraError(result.error);
-      else if (!result.cancelled && result.imagePaths[0]) {
+      else if (result.cancelled) setCameraError('已取消相册选择');
+      else if (result.imagePaths[0]) {
         await openImage(result.imagePaths[0], result.imagePaths.slice(1), 'gallery');
         return;
       }

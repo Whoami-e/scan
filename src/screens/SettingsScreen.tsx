@@ -1,10 +1,11 @@
 import React, {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {IconButton, Surface} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
 
 import {theme} from '../theme/theme';
+import {MAX_TEXT_SCALE, MAX_TITLE_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 
 export interface SettingsScreenProps {
   onBack?: () => void;
@@ -13,11 +14,12 @@ export interface SettingsScreenProps {
 
 function SettingsScreen({onBack, onExportLogs}: SettingsScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, {paddingTop: insets.top + theme.spacing.md}]}>
-        <Text accessibilityRole="header" style={styles.title}>设置</Text>
+      <View style={[styles.header, {paddingHorizontal: metrics.horizontalInset, paddingTop: insets.top + theme.spacing.md}]}>
+        <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TITLE_TEXT_SCALE} style={[styles.title, {fontSize: metrics.titleSize, lineHeight: metrics.titleLineHeight}]}>设置</Text>
         <IconButton
           accessibilityLabel="返回首页"
           icon={renderBackIcon}
@@ -28,7 +30,10 @@ function SettingsScreen({onBack, onExportLogs}: SettingsScreenProps): React.JSX.
         />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, {paddingHorizontal: metrics.horizontalInset}]}
+        style={styles.scroller}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.settingsList}>
           <SettingRow
             title="本地保存"
@@ -56,10 +61,10 @@ function SettingsScreen({onBack, onExportLogs}: SettingsScreenProps): React.JSX.
           <SettingRow
             title="版本"
             description="原型对应 PRD v2026-08-27.1"
-            action={<View style={styles.versionTag}><Text style={styles.versionTagText}>MVP</Text></View>}
+            action={<View style={styles.versionTag}><Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.versionTagText}>MVP</Text></View>}
           />
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -91,8 +96,8 @@ function SettingRow({
         elevation={0}
         style={[styles.settingRow, highlighted && styles.settingRowHighlighted]}>
         <View style={styles.copy}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.rowTitle}>{title}</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.description}>{description}</Text>
         </View>
         {action}
       </Surface>
@@ -136,13 +141,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 128,
+    minHeight: 96,
     paddingBottom: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
   },
   title: {
     color: theme.colors.inkPrimary,
-    fontSize: 32,
+    fontSize: theme.typography.title,
     fontWeight: '800',
     lineHeight: 36,
   },
@@ -155,10 +159,11 @@ const styles = StyleSheet.create({
   },
   content: {
     backgroundColor: theme.colors.surfaceDefault,
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
+    flexGrow: 1,
+    paddingBottom: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
   },
+  scroller: {flex: 1},
   settingsList: {gap: theme.spacing.md},
   pressableRow: {borderRadius: theme.radii.lg},
   shadowLayer: {
@@ -179,7 +184,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
     shadowColor: theme.colors.inkPrimary,
     shadowOffset: {height: 5, width: 5},

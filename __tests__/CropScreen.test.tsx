@@ -9,6 +9,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import CropScreen from '../src/screens/CropScreen';
+import {MAX_CONTROL_TEXT_SCALE} from '../src/theme/responsive';
 
 function renderCrop(props: React.ComponentProps<typeof CropScreen> = {}) {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -112,6 +113,14 @@ test('gives both crop action buttons a shadow', () => {
   const confirmLayer = renderer.root.findByProps({testID: 'button-shadow-layer-confirm'});
   expect(retakeLayer.props.style).toEqual(expect.objectContaining({left: 4, top: 4}));
   expect(confirmLayer.props.style).toEqual(expect.objectContaining({left: 4, top: 4}));
+});
+
+test('caps crop action label scaling to keep both buttons usable', () => {
+  const renderer = renderCrop();
+  expect(renderer.root.findAllByType(Button).map(button => button.props.maxFontSizeMultiplier)).toEqual([
+    MAX_CONTROL_TEXT_SCALE,
+    MAX_CONTROL_TEXT_SCALE,
+  ]);
 });
 
 test('centers the crop buttons vertically in the bottom action bar', () => {

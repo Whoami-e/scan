@@ -1,5 +1,5 @@
 import React from 'react';
-import {Alert, Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Alert, Image, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {IconButton, Surface} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
@@ -7,6 +7,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import {theme} from '../theme/theme';
 import Svg, {Path} from 'react-native-svg';
 import {Document} from '../data/models';
+import {MAX_TEXT_SCALE, MAX_TITLE_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 
 export interface HomeScreenProps {
   onStartScan?: () => void;
@@ -18,6 +19,7 @@ export interface HomeScreenProps {
 
 function HomeScreen({onStartScan, onSettings, documents = [], onOpenDocument, onDeleteDocument}: HomeScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
 
   function handleStartScan(): void {
     if (onStartScan) {
@@ -39,12 +41,12 @@ function HomeScreen({onStartScan, onSettings, documents = [], onOpenDocument, on
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, {paddingTop: insets.top + 8}]}>
+      <View style={[styles.header, {paddingHorizontal: metrics.horizontalInset, paddingTop: insets.top + 8}]}>
         <View>
-          <Text accessibilityRole="header" style={styles.title}>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TITLE_TEXT_SCALE} style={[styles.title, {fontSize: metrics.titleSize, lineHeight: metrics.titleLineHeight}]}>
             文档
           </Text>
-          <Text style={styles.viewSubtitle}>最近更新的扫描工程</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.viewSubtitle}>最近更新的扫描工程</Text>
         </View>
         <IconButton
           accessibilityLabel="进入设置"
@@ -58,24 +60,24 @@ function HomeScreen({onStartScan, onSettings, documents = [], onOpenDocument, on
         />
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.contentInner}>
-          {documents.length > 0 ? <View style={styles.documentList}>{documents.map(document => <Pressable key={document.id} accessibilityLabel={`打开文档${document.title}`} accessibilityRole="button" onPress={() => onOpenDocument?.(document)} style={styles.documentCard}><View style={styles.documentThumb}>{document.pages[0]?.thumbnailPath || document.pages[0]?.processedImagePath ? <Image resizeMode="cover" source={{uri: document.pages[0].thumbnailPath ?? document.pages[0].processedImagePath}} style={styles.documentImage} /> : <View style={styles.thumbPaper}><View style={styles.thumbLine} /><View style={styles.thumbLineShort} /></View>}</View><View style={styles.documentCopy}><Text numberOfLines={1} style={styles.documentTitle}>{document.title}</Text><Text style={styles.documentMeta}>{document.pages.length} 页 · {document.status === 'exported' ? '已导出' : '草稿'}</Text></View><IconButton accessibilityLabel={`删除文档${document.title}`} icon={renderTrashIcon} iconColor={theme.colors.danger} onPress={() => Alert.alert('删除文档？', '文档及关联图片会从本机移除。', [{text: '取消', style: 'cancel'}, {text: '删除', style: 'destructive', onPress: () => onDeleteDocument?.(document)}])} size={19} style={styles.documentDelete} /></Pressable>)}</View> : <View style={styles.emptyStateFrame}>
+      <ScrollView
+        contentContainerStyle={[styles.contentInner, {paddingHorizontal: metrics.horizontalInset}]}
+        style={styles.content}>
+          {documents.length > 0 ? <View style={styles.documentList}>{documents.map(document => <Pressable key={document.id} accessibilityLabel={`打开文档${document.title}`} accessibilityRole="button" onPress={() => onOpenDocument?.(document)} style={styles.documentCard}><View style={styles.documentThumb}>{document.pages[0]?.thumbnailPath || document.pages[0]?.processedImagePath ? <Image resizeMode="cover" source={{uri: document.pages[0].thumbnailPath ?? document.pages[0].processedImagePath}} style={styles.documentImage} /> : <View style={styles.thumbPaper}><View style={styles.thumbLine} /><View style={styles.thumbLineShort} /></View>}</View><View style={styles.documentCopy}><Text maxFontSizeMultiplier={MAX_TEXT_SCALE} numberOfLines={1} style={styles.documentTitle}>{document.title}</Text><Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.documentMeta}>{document.pages.length} 页 · {document.status === 'exported' ? '已导出' : '草稿'}</Text></View><IconButton accessibilityLabel={`删除文档${document.title}`} icon={renderTrashIcon} iconColor={theme.colors.danger} onPress={() => Alert.alert('删除文档？', '文档及关联图片会从本机移除。', [{text: '取消', style: 'cancel'}, {text: '删除', style: 'destructive', onPress: () => onDeleteDocument?.(document)}])} size={19} style={styles.documentDelete} /></Pressable>)}</View> : <View style={styles.emptyStateFrame}>
             <View pointerEvents="none" style={styles.emptyStateShadow} />
             <Surface elevation={0} style={styles.emptyState}>
-              <Text style={styles.emptyStateTitle}>暂无文档</Text>
-              <Text style={styles.emptyStateDescription}>
+              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.emptyStateTitle}>暂无文档</Text>
+              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.emptyStateDescription}>
                 点按下方按钮开始扫描。
               </Text>
             </Surface>
           </View>}
-        </View>
-      </View>
+      </ScrollView>
 
       <View
         style={[
           styles.bottomAction,
-          {paddingBottom: insets.bottom + theme.spacing.lg - 2},
+          {paddingBottom: insets.bottom + theme.spacing.lg - 2, paddingHorizontal: metrics.horizontalInset},
         ]}>
         <PrimaryButton
           accessibilityLabel="扫描"
@@ -129,11 +131,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: theme.colors.surfaceDefault,
-    paddingHorizontal: 20,
   },
   contentInner: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: theme.spacing.md + 2,
+    paddingBottom: theme.spacing.md,
   },
   documentList: {gap: theme.spacing.md},
   documentCard: {alignItems: 'center', backgroundColor: theme.colors.surfaceWarm, borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.md, borderWidth: 2, flexDirection: 'row', minHeight: 100, padding: theme.spacing.sm},
@@ -198,7 +200,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceWarm,
     borderTopColor: theme.colors.inkPrimary,
     borderTopWidth: 3,
-    paddingHorizontal: 20,
     paddingTop: 14,
   },
   scanIcon: {

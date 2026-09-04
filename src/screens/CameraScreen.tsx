@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +12,7 @@ import Svg, {Circle, Path, Rect} from 'react-native-svg';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {theme} from '../theme/theme';
+import {MAX_CONTROL_TEXT_SCALE, MAX_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 
 const NativeCameraPreview = requireNativeComponent<{
   enabled?: boolean;
@@ -57,10 +58,22 @@ function CameraScreen({
   onDocumentCorners,
 }: CameraScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
   const [flashOn, setFlashOn] = useState(false);
   const actionInFlight = useRef(false);
+  const detectionExpiry = useRef<ReturnType<typeof setTimeout>>();
   const [documentCorners, setDocumentCorners] = useState<DocumentCornersEvent | null>(null);
-  const statusLabel = permissionDenied ? '相机权限已拒绝' : cameraError ?? '已检测到文档边缘';
+  const statusLabel = permissionDenied
+    ? '相机权限已拒绝'
+    : cameraError ?? (documentCorners ? '已检测到文档边缘' : '正在检测文档边缘');
+
+  useEffect(() => {
+    if (!cameraEnabled || permissionDenied || cameraError) setDocumentCorners(null);
+  }, [cameraEnabled, cameraError, permissionDenied]);
+
+  useEffect(() => () => {
+    if (detectionExpiry.current) clearTimeout(detectionExpiry.current);
+  }, []);
 
   function toggleFlash(): void {
     const next = !flashOn;
@@ -73,9 +86,9 @@ function CameraScreen({
     actionInFlight.current = true;
     const result = onCapture?.();
     if (result && typeof (result as Promise<void>).then === 'function') {
-      void result.finally(() => {
+      result.finally(() => {
         actionInFlight.current = false;
-      });
+      }).catch(() => undefined);
     } else {
       actionInFlight.current = false;
     }
@@ -86,9 +99,9 @@ function CameraScreen({
     actionInFlight.current = true;
     const result = onImport?.();
     if (result && typeof (result as Promise<void>).then === 'function') {
-      void result.finally(() => {
+      result.finally(() => {
         actionInFlight.current = false;
-      });
+      }).catch(() => undefined);
     } else {
       actionInFlight.current = false;
     }
@@ -97,10 +110,13 @@ function CameraScreen({
   function handleDocumentCorners(event: {nativeEvent: DocumentCornersEvent}): void {
     const next = event.nativeEvent;
     const points = next?.corners ? Object.values(next.corners) : [];
-    if (!next || !Number.isFinite(next.confidence) || !next.source || points.length !== 4 || points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) {
+    if (!next || (next.source !== 'fairscan' && next.source !== 'opencv') || next.confidence < 0.3 || !Number.isFinite(next.confidence) || points.length !== 4 || points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) {
+      setDocumentCorners(null);
       return;
     }
     setDocumentCorners(next);
+    if (detectionExpiry.current) clearTimeout(detectionExpiry.current);
+    detectionExpiry.current = setTimeout(() => setDocumentCorners(null), 1500);
     onDocumentCorners?.(next);
   }
 
@@ -123,7 +139,7 @@ function CameraScreen({
           />
           <View style={styles.viewportMessage}>
             {isProcessing ? <ActivityIndicator color={theme.colors.surfaceDefault} size="small" /> : null}
-            <Text style={styles.viewportMessageText}>{cameraError ?? (isProcessing ? processingLabel : '请保持纸张完整入镜')}</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.viewportMessageText}>{cameraError ?? (isProcessing ? processingLabel : '请保持纸张完整入镜')}</Text>
           </View>
         </View>
       </View>
@@ -138,8 +154,8 @@ function CameraScreen({
           <BackIcon />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text accessibilityRole="header" style={styles.title}>拍摄文档</Text>
-          <Text style={styles.subtitle}>{statusLabel}</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.title}>拍摄文档</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} numberOfLines={2} style={styles.subtitle}>{statusLabel}</Text>
         </View>
         <Pressable
           accessibilityLabel="切换闪光灯"
@@ -152,12 +168,12 @@ function CameraScreen({
         </Pressable>
       </View>
 
-      <View style={[styles.statusArea, {bottom: Math.max(insets.bottom + 132, 150)}]}>
-        {permissionDenied ? <Text style={styles.permissionText}>请在系统设置中允许相机权限后继续</Text> : null}
-        {cameraError ? <Text style={styles.errorText}>{cameraError}</Text> : null}
+      <View style={[styles.statusArea, {bottom: Math.max(insets.bottom + (metrics.isCompact ? 116 : 132), metrics.isCompact ? 132 : 150), left: metrics.horizontalInset, right: metrics.horizontalInset}]}>
+        {permissionDenied ? <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.permissionText}>请在系统设置中允许相机权限后继续</Text> : null}
+        {cameraError ? <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.errorText}>{cameraError}</Text> : null}
       </View>
 
-      <View style={[styles.controls, {bottom: Math.max(insets.bottom + 14, 14), paddingBottom: Math.max(insets.bottom + 14, 26)}]}>
+      <View style={[styles.controls, metrics.isCompact && styles.controlsCompact, {bottom: Math.max(insets.bottom + 14, 14), paddingBottom: Math.max(insets.bottom + 14, metrics.isCompact ? 18 : 26)}]}>
         <Pressable
           accessibilityLabel="从相册导入"
           accessibilityRole="button"
@@ -166,7 +182,7 @@ function CameraScreen({
           onPress={handleImport}
           style={styles.sideAction}>
           <View style={styles.sideIcon}><GalleryIcon /></View>
-          <Text style={styles.sideLabel}>相册</Text>
+          <Text maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE} style={styles.sideLabel}>相册</Text>
         </Pressable>
         <Pressable
           accessibilityLabel="拍照"
@@ -185,7 +201,7 @@ function CameraScreen({
           onPress={onPermission}
           style={styles.sideAction}>
           <View style={styles.sideIcon}><ShieldIcon /></View>
-          <Text style={styles.sideLabel}>权限</Text>
+          <Text maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE} style={styles.sideLabel}>权限</Text>
         </Pressable>
       </View>
     </View>
@@ -233,6 +249,7 @@ const styles = StyleSheet.create({
   permissionText: {color: theme.colors.canvasWarm, fontSize: 12, textAlign: 'center'},
   errorText: {color: '#FF9C9F', fontSize: 12, marginTop: 3, textAlign: 'center'},
   controls: {alignItems: 'center', backgroundColor: 'rgba(76,66,108,0.88)', borderRadius: 26, flexDirection: 'row', justifyContent: 'space-between', left: 14, minHeight: 112, paddingHorizontal: 28, paddingTop: 16, position: 'absolute', right: 14, zIndex: 4},
+  controlsCompact: {left: 12, minHeight: 100, paddingHorizontal: 16, right: 12},
   sideAction: {alignItems: 'center', minHeight: 64, justifyContent: 'center', minWidth: 62},
   sideIcon: {alignItems: 'center', borderColor: 'rgba(255,248,215,0.75)', borderRadius: 16, borderWidth: 2, height: 48, justifyContent: 'center', width: 48},
   sideLabel: {color: theme.colors.canvasWarm, fontSize: 12, fontWeight: '700', marginTop: 4},

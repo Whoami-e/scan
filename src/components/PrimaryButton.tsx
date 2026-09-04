@@ -10,6 +10,7 @@ import {StyleSheet, View} from 'react-native';
 import {Button} from 'react-native-paper';
 
 import {theme} from '../theme/theme';
+import {MAX_CONTROL_TEXT_SCALE} from '../theme/responsive';
 
 interface PrimaryButtonProps {
   accessibilityLabel?: string;
@@ -39,6 +40,7 @@ function PrimaryButton({
         disabled={disabled}
         icon={icon}
         mode="contained"
+        maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
         onPress={onPress}
         style={[styles.button, disabled && styles.buttonDisabled]}
         contentStyle={styles.content}
@@ -86,6 +88,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: theme.typography.button,
     fontWeight: '800',
+    lineHeight: 20,
   },
 });
 

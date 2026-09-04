@@ -86,6 +86,22 @@ test('keeps ordered gallery selections and starts with the first URI', async () 
   expect(root.findByProps({accessibilityLabel: '待裁剪照片'}).props.source).toEqual({uri: 'content://one'});
 });
 
+test('returns to the camera with clear feedback when gallery selection is cancelled', async () => {
+  jest.mocked(importDocuments).mockResolvedValueOnce({cancelled: true, imagePaths: []});
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  const root = renderer!.root;
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '扫描'}).props.onPress());
+
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '从相册导入'}).props.onPress());
+
+  expect(root.findByProps({accessibilityLabel: '相机画面区域'})).toBeDefined();
+  expect(root.findByProps({accessibilityLabel: '从相册导入'}).props.accessibilityState.disabled).toBe(false);
+  expect(root.findAll(node => node.props.children === '已取消相册选择').length).toBeGreaterThan(0);
+});
+
 test('commits a captured photo through crop and enhance into the document', async () => {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   ReactTestRenderer.act(() => {

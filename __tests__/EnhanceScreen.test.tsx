@@ -7,6 +7,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import EnhanceScreen from '../src/screens/EnhanceScreen';
+import {MAX_CONTROL_TEXT_SCALE} from '../src/theme/responsive';
 
 function flattenStyle(style: unknown): Record<string, unknown> {
   if (Array.isArray(style)) return Object.assign({}, ...style.map(flattenStyle));
@@ -60,6 +61,18 @@ test('reports the selected mode and passes it to add-page', () => {
 
   expect(onModeChange).toHaveBeenCalledWith('grayscale');
   expect(onAddPage).toHaveBeenCalledWith('grayscale');
+});
+
+test('caps enhancement control label scaling', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<EnhanceScreen />);
+  });
+
+  expect(renderer!.root.findAll(node => node.props.accessibilityRole === 'tab').every(node => {
+    const label = node.findByType(require('react-native').Text);
+    return label.props.maxFontSizeMultiplier === MAX_CONTROL_TEXT_SCALE;
+  })).toBe(true);
 });
 
 test('keeps the preview frame styling stable while switching modes', () => {

@@ -8,6 +8,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import PagesScreen from '../src/screens/PagesScreen';
+import {MAX_TITLE_TEXT_SCALE} from '../src/theme/responsive';
 
 const pages = [{
   id: 'page-1',
@@ -34,6 +35,8 @@ test('matches the energetic multi-page management landmarks', () => {
   const titleText = renderer.root.findByProps({accessibilityRole: 'header'});
   expect(String(titleText.props.children)).toMatch(/^未命名文档 \d{4}$/);
   expect(titleText.props.style).toEqual(expect.objectContaining({textAlign: 'center'}));
+  expect(titleText.props.style).toEqual(expect.objectContaining({fontSize: 24, lineHeight: 30}));
+  expect(titleText.props.maxFontSizeMultiplier).toBe(MAX_TITLE_TEXT_SCALE);
   expect(renderer.root.findByProps({accessibilityLabel: '再拍别的照片'})).toBeDefined();
   expect(renderer.root.findByProps({accessibilityLabel: '相册导入'})).toBeDefined();
   expect(renderer.root.findByProps({accessibilityLabel: '导出 PDF'})).toBeDefined();

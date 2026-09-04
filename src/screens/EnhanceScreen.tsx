@@ -5,6 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {EnhanceMode} from '../data/models';
 import {theme} from '../theme/theme';
+import {MAX_CONTROL_TEXT_SCALE, MAX_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 import Svg, {Path} from 'react-native-svg';
 
 export interface EnhanceScreenProps {
@@ -36,6 +37,7 @@ function EnhanceScreen({
   onAddPage,
 }: EnhanceScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
   const [selectedMode, setSelectedMode] = useState<EnhanceMode>(mode);
   const selectedModeRef = useRef<EnhanceMode>(mode);
 
@@ -65,8 +67,8 @@ function EnhanceScreen({
             style={styles.headerButton}
           />
           <View style={styles.headerCopy}>
-            <Text accessibilityRole="header" style={styles.title}>图像增强</Text>
-            <Text style={styles.subtitle}>选择适合文档的清晰度</Text>
+            <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.title}>图像增强</Text>
+            <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.subtitle}>选择适合文档的清晰度</Text>
           </View>
           <IconButton
             accessibilityLabel="旋转页面"
@@ -82,12 +84,12 @@ function EnhanceScreen({
           <View accessibilityLabel={`图像预览：${modes.find(item => item.key === selectedMode)?.label ?? '原图'}`} testID="enhance-preview-paper" style={[styles.paper, (rotationDegrees === 90 || rotationDegrees === 270) && styles.paperLandscape]}>
             {imagePath ? <Image accessibilityLabel="增强后的照片" resizeMode="contain" source={{uri: imagePath}} style={styles.previewImage} /> : null}
           </View>
-          <Text style={styles.previewHint}>预览效果</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.previewHint}>预览效果</Text>
         </View>
       </View>
 
-      <View testID="enhance-tools" style={[styles.tools, {paddingBottom: Math.max(insets.bottom + theme.spacing.sm, theme.spacing.md)}]}>
-        <Text style={styles.modeLabel}>增强模式</Text>
+      <View testID="enhance-tools" style={[styles.tools, metrics.isCompact && styles.toolsCompact, {margin: metrics.isCompact ? theme.spacing.sm : theme.spacing.md, paddingBottom: Math.max(insets.bottom + theme.spacing.sm, theme.spacing.md)}]}>
+        <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.modeLabel}>增强模式</Text>
         <View style={styles.segmented} accessibilityRole="tablist">
           {modes.map(item => (
             <Pressable
@@ -97,7 +99,7 @@ function EnhanceScreen({
               accessibilityState={{selected: selectedMode === item.key}}
               onPress={() => selectMode(item.key)}
               style={[styles.segment, selectedMode === item.key && styles.segmentActive]}>
-              <Text style={[styles.segmentText, selectedMode === item.key && styles.segmentTextActive]}>{item.label}</Text>
+              <Text maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE} numberOfLines={1} style={[styles.segmentText, selectedMode === item.key && styles.segmentTextActive]}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -107,6 +109,7 @@ function EnhanceScreen({
             mode="contained"
             onPress={onRecrop}
             buttonColor={theme.colors.darkSurface}
+            maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
             textColor={theme.colors.surfaceDefault}
             style={styles.secondaryButton}
             contentStyle={styles.buttonContent}
@@ -118,6 +121,7 @@ function EnhanceScreen({
             mode="contained"
             onPress={() => onAddPage?.(selectedModeRef.current)}
             buttonColor={theme.colors.actionPrimary}
+            maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
             textColor={theme.colors.surfaceDefault}
             style={styles.primaryButton}
             contentStyle={styles.buttonContent}
@@ -152,6 +156,7 @@ const styles = StyleSheet.create({
   previewImage: {bottom: 0, height: '100%', left: 0, position: 'absolute', right: 0, top: 0, width: '100%'},
   previewHint: {color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.md},
   tools: {backgroundColor: theme.colors.darkSurface, borderRadius: theme.radii.lg, gap: theme.spacing.sm, margin: theme.spacing.md, padding: theme.spacing.md},
+  toolsCompact: {padding: theme.spacing.sm},
   modeLabel: {color: 'rgba(255,255,255,0.65)', fontSize: theme.typography.caption, fontWeight: '700'},
   segmented: {backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: theme.radii.sm, flexDirection: 'row', padding: 3},
   segment: {alignItems: 'center', borderRadius: theme.radii.sm - 2, flex: 1, justifyContent: 'center', minHeight: 38},
