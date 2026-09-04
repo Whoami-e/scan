@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View} from 'react-native';
 import {Button, IconButton, Surface} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
@@ -35,7 +35,9 @@ function PagesScreen({
   onReorder,
 }: PagesScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const {height: windowHeight} = useWindowDimensions();
   const [localPages, setLocalPages] = useState<ScanPage[]>(pages);
+  const [preview, setPreview] = useState<{page: ScanPage; index: number}>();
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(() => untitledTitle(documentTitle));
   const onRenameRef = useRef(onRename);
@@ -136,6 +138,7 @@ function PagesScreen({
                 </View>
                 <Text style={styles.pageMeta} numberOfLines={1}>{pageName(index)} · {modeLabel(page.enhanceMode)}</Text>
                 <View style={styles.pageActions}>
+                  <Pressable accessibilityLabel={`预览第 ${index + 1} 页`} onPress={() => setPreview({page, index})} style={styles.miniButton}><Text style={styles.miniButtonText}>预览</Text></Pressable>
                   <Pressable accessibilityLabel={`第 ${index + 1} 页上移`} disabled={index === 0} onPress={() => movePage(index, -1)} style={[styles.miniButton, index === 0 && styles.disabledMiniButton]}><Text style={styles.miniButtonText}>上移</Text></Pressable>
                   <Pressable accessibilityLabel={`删除第 ${index + 1} 页`} onPress={() => confirmDelete(page)} style={[styles.miniButton, styles.deleteMiniButton]}><Text style={styles.deleteMiniButtonText}>删除</Text></Pressable>
                 </View>
@@ -144,6 +147,26 @@ function PagesScreen({
           </View>
         )}
       </ScrollView>
+
+      <Modal animationType="fade" onRequestClose={() => setPreview(undefined)} transparent visible={Boolean(preview)}>
+        <View style={styles.previewOverlay}>
+          <View style={styles.previewDialog}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewTitle}>{preview ? `第 ${preview.index + 1} 页` : '页面预览'}</Text>
+              <Pressable accessibilityLabel="关闭页面预览" accessibilityRole="button" onPress={() => setPreview(undefined)} style={styles.previewCloseButton}>
+                <Text style={styles.previewCloseText}>关闭</Text>
+              </Pressable>
+            </View>
+            {preview?.page.processedImagePath || preview?.page.originalImagePath ? (
+              <Image accessibilityLabel={`第 ${(preview?.index ?? 0) + 1} 页大图预览`} resizeMode="contain" source={{uri: preview.page.processedImagePath ?? preview.page.originalImagePath}} style={[styles.previewImage, {height: Math.min(520, Math.max(240, windowHeight * 0.62))}]} />
+            ) : (
+              <View accessibilityLabel={`第 ${(preview?.index ?? 0) + 1} 页大图预览`} style={styles.previewEmpty}>
+                <Text style={styles.previewEmptyText}>暂无图片预览</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <View style={[styles.bottom, {paddingBottom: insets.bottom + theme.spacing.md}]}>
         <Button accessibilityLabel="相册导入" compact mode="outlined" onPress={onImport} textColor={theme.colors.inkPrimary} style={styles.bottomButton} contentStyle={styles.bottomButtonContent}>相册导入</Button>
@@ -192,12 +215,21 @@ const styles = StyleSheet.create({
   thumbPaper: {backgroundColor: '#FFF9DF', borderRadius: 8, height: '72%', justifyContent: 'space-evenly', paddingVertical: 3, shadowColor: theme.colors.inkPrimary, shadowOffset: {height: 6, width: 5}, shadowOpacity: 0.26, shadowRadius: 0, width: '68%'},
   thumbLine: {backgroundColor: '#BDB7A4', height: 2, marginHorizontal: 0},
   pageMeta: {color: theme.colors.textMuted, fontSize: 14, marginTop: theme.spacing.sm},
-  pageActions: {flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.sm},
+  pageActions: {flexDirection: 'row', gap: theme.spacing.xs, marginTop: theme.spacing.sm},
   miniButton: {alignItems: 'center', borderColor: theme.colors.inkPrimary, borderRadius: 14, borderWidth: 3, flex: 1, height: 36, justifyContent: 'center'},
   disabledMiniButton: {opacity: 1},
   miniButtonText: {color: theme.colors.inkPrimary, fontSize: 14, fontWeight: '800'},
   deleteMiniButton: {borderColor: theme.colors.inkPrimary},
   deleteMiniButtonText: {color: theme.colors.danger, fontSize: 14, fontWeight: '800'},
+  previewOverlay: {alignItems: 'center', backgroundColor: 'rgba(23,17,41,0.72)', flex: 1, justifyContent: 'center', padding: theme.spacing.lg},
+  previewDialog: {backgroundColor: theme.colors.surfaceDefault, borderColor: theme.colors.inkPrimary, borderRadius: 22, borderWidth: 3, maxHeight: '86%', padding: theme.spacing.md, shadowColor: theme.colors.inkPrimary, shadowOffset: {height: 7, width: 7}, shadowOpacity: 1, shadowRadius: 0, width: '100%'},
+  previewHeader: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: theme.spacing.sm},
+  previewTitle: {color: theme.colors.inkPrimary, fontSize: theme.typography.textLg, fontWeight: '800'},
+  previewCloseButton: {borderColor: theme.colors.inkPrimary, borderRadius: 12, borderWidth: 2, minWidth: 64, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs},
+  previewCloseText: {color: theme.colors.inkPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center'},
+  previewImage: {backgroundColor: theme.colors.surfaceWarm, width: '100%'},
+  previewEmpty: {alignItems: 'center', backgroundColor: theme.colors.surfaceWarm, height: 240, justifyContent: 'center', width: '100%'},
+  previewEmptyText: {color: theme.colors.textMuted, fontSize: theme.typography.body, fontWeight: '600'},
   empty: {alignItems: 'center', paddingTop: theme.spacing.xl},
   emptyTitle: {color: theme.colors.inkPrimary, fontSize: theme.typography.textLg, fontWeight: '800'},
   emptyText: {color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.sm},
