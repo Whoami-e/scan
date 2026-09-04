@@ -22,6 +22,7 @@ const modes: Array<{key: EnhanceMode; label: string}> = [
   {key: 'original', label: '原图'},
   {key: 'enhanced', label: '增强'},
   {key: 'grayscale', label: '灰度'},
+  {key: 'blackwhite', label: '黑白'},
 ];
 
 function EnhanceScreen({

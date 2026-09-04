@@ -1,4 +1,5 @@
 import {NativeModules} from 'react-native';
+import {PageRenderRecipe} from '../native/scannerModule';
 
 /**
  * App 沙盒文件存储的接口占位。
@@ -18,6 +19,7 @@ export interface FileStore {
   loadDocuments(): Promise<string[]>;
   deleteDocument(documentId: string): Promise<void>;
   savePageImage(documentId: string, pageId: string, imagePath: string, kind: 'original' | 'processed'): Promise<string>;
+  renderPage(originalImagePath: string, recipe: PageRenderRecipe): Promise<string>;
 }
 
 /**
@@ -66,5 +68,11 @@ export const fileStore: FileStore = {
     const save = NativeModules.ScannerModule?.savePageImage as ((docId: string, pageId: string, path: string, kind: string) => Promise<string>) | undefined;
     if (!save) throw new Error('fileStore 尚未接入 App 沙盒文件系统');
     return save(documentId, pageId, imagePath, kind);
+  },
+
+  async renderPage(originalImagePath, recipe): Promise<string> {
+    const render = NativeModules.ScannerModule?.renderPage as ((path: string, value: PageRenderRecipe) => Promise<{processedImagePath: string}>) | undefined;
+    if (!render) throw new Error('fileStore 尚未接入原图重渲染');
+    return (await render(originalImagePath, recipe)).processedImagePath;
   },
 };

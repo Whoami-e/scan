@@ -32,6 +32,19 @@ jest.mock('../src/native/scannerModule', () => ({
   },
 }));
 
+jest.mock('../src/data/fileStore', () => ({
+  fileStore: {
+    loadDocuments: jest.fn().mockResolvedValue([]),
+    createWorkspace: jest.fn().mockResolvedValue('/sandbox/doc-local'),
+    savePageImage: jest.fn().mockImplementation(async (_documentId: string, pageId: string, imagePath: string, kind: string) => `/sandbox/${pageId}-${kind}-${imagePath.split('/').pop()}`),
+    saveDocument: jest.fn().mockResolvedValue(undefined),
+    deleteWorkspace: jest.fn().mockResolvedValue(undefined),
+    deleteDocument: jest.fn().mockResolvedValue(undefined),
+    removeFile: jest.fn().mockResolvedValue(undefined),
+    renderPage: jest.fn(),
+  },
+}));
+
 import App from '../App';
 import {captureDocument, importDocuments} from '../src/native/mediaPicker';
 import {scannerModule} from '../src/native/scannerModule';

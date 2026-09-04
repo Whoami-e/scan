@@ -162,7 +162,7 @@ function pageName(index: number): string {
 }
 
 function modeLabel(mode: ScanPage['enhanceMode']): string {
-  return {original: '原图', enhanced: '增强', grayscale: '灰度'}[mode] ?? '原图';
+  return {original: '原图', enhanced: '增强', grayscale: '灰度', blackwhite: '黑白'}[mode] ?? '原图';
 }
 
 function renderRescanIcon({color, size}: {color: string; size: number}) {

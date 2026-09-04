@@ -45,3 +45,21 @@ test('forwards host pause to the active camera view', () => {
   expect(activity).toContain('override fun onPause()');
   expect(activity).toContain('ScannerCameraView.activeView?.onHostPause()');
 });
+
+test('renders only stable document corners from the native preview event', () => {
+  const cameraScreen = fs.readFileSync(
+    path.join(process.cwd(), 'src/screens/CameraScreen.tsx'),
+    'utf8',
+  );
+
+  expect(cameraScreen).toContain('onDocumentCorners');
+  expect(cameraScreen).toContain('camera-document-corners');
+  expect(cameraScreen).toContain('source');
+  expect(cameraScreen).toContain('confidence');
+});
+
+test('throttles live analysis and prevents concurrent work', () => {
+  expect(cameraView).toContain('LIVE_ANALYSIS_INTERVAL_MS = 350L');
+  expect(cameraView).toContain('liveAnalysisInFlight');
+  expect(cameraView).toContain('compareAndSet(false, true)');
+});

@@ -177,7 +177,11 @@ npm run android
 
 Android 使用 `org.opencv:opencv:4.12.0`（Apache License 2.0）。版权和许可证追溯见根目录的 `LICENSE`、`NOTICE` 与 `docs/third-party/makeacopy-notices.md`。
 
+本项目还包含 FairScan `v2.2.0`（commit `2297341`）的文档检测、几何和图像处理算法适配代码，按 GPLv3 授权。上游来源、固定 blob SHA、模型取得位置和许可证说明见 `NOTICE`、`LICENSE`、`docs/third-party/fairscan-sources.md` 与 `docs/third-party/fairscan-model.md`。
+
 `./gradlew :app:assembleRelease` 会在构建完成后自动运行发布内容守卫。也可以手动运行 `scripts/verify-release-contents.sh path/to/release.apk`；它会拒绝 MakeACopy 标识、测试资产、OCR/模型资源、调试日志标记和完整本地路径。
+
+FairScan 集成的自动化闸门和 API 29/33/35 真机验收矩阵见 `docs/testing/fairscan-integration-acceptance.md`；日志隐私检查可运行 `scripts/verify-log-privacy.sh`。
 
 原型测试仍然可以单独执行：
 
