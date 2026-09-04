@@ -9,6 +9,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 import CameraScreen from '../src/screens/CameraScreen';
 import {theme} from '../src/theme/theme';
+import {MAX_TEXT_SCALE} from '../src/theme/responsive';
 
 function renderCamera(props: React.ComponentProps<typeof CameraScreen> = {}) {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -45,6 +46,101 @@ test('keeps the bottom controls floating away from the screen edges', () => {
   expect(style.right).toBe(14);
   expect(style.bottom).toBe(14);
   expect(style.borderRadius).toBe(26);
+});
+
+test('caps camera status text scaling independently from the preview layout', () => {
+  const renderer = renderCamera();
+  const title = renderer.root.findAll(node => node.props.children === '拍摄文档')[0];
+  expect(title.props.maxFontSizeMultiplier).toBe(MAX_TEXT_SCALE);
+});
+
+test('does not claim document edges before a real detection event', () => {
+  const renderer = renderCamera();
+  expect(renderer.root.findAll(node => node.props.children === '已检测到文档边缘')).toHaveLength(0);
+  expect(renderer.root.findAll(node => node.props.children === '正在检测文档边缘').length).toBeGreaterThan(0);
+});
+
+test('shows detected status only after a valid native detection event', () => {
+  const renderer = renderCamera();
+  const preview = renderer.root.findByProps({accessibilityLabel: '实时摄像头预览'});
+
+  ReactTestRenderer.act(() => {
+    preview.props.onDocumentCorners({
+      nativeEvent: {
+        corners: {
+          topLeft: {x: 0.1, y: 0.1},
+          topRight: {x: 0.9, y: 0.1},
+          bottomRight: {x: 0.9, y: 0.9},
+          bottomLeft: {x: 0.1, y: 0.9},
+        },
+        source: 'opencv',
+        confidence: 0.8,
+      },
+    });
+  });
+
+  expect(renderer.root.findAll(node => node.props.children === '已检测到文档边缘').length).toBeGreaterThan(0);
+  ReactTestRenderer.act(() => renderer.unmount());
+});
+
+test('expires detected status when no fresh native event arrives', () => {
+  jest.useFakeTimers();
+  const renderer = renderCamera();
+  const preview = renderer.root.findByProps({accessibilityLabel: '实时摄像头预览'});
+
+  ReactTestRenderer.act(() => {
+    preview.props.onDocumentCorners({
+      nativeEvent: {
+        corners: {
+          topLeft: {x: 0.1, y: 0.1},
+          topRight: {x: 0.9, y: 0.1},
+          bottomRight: {x: 0.9, y: 0.9},
+          bottomLeft: {x: 0.1, y: 0.9},
+        },
+        source: 'fairscan',
+        confidence: 0.8,
+      },
+    });
+    jest.advanceTimersByTime(1600);
+  });
+
+  expect(renderer.root.findAll(node => node.props.children === '已检测到文档边缘')).toHaveLength(0);
+  ReactTestRenderer.act(() => renderer.unmount());
+  jest.useRealTimers();
+});
+
+test('does not treat fallback corners as a real detection', () => {
+  const renderer = renderCamera();
+  const preview = renderer.root.findByProps({accessibilityLabel: '实时摄像头预览'});
+
+  ReactTestRenderer.act(() => {
+    preview.props.onDocumentCorners({
+      nativeEvent: {
+        corners: {
+          topLeft: {x: 0.1, y: 0.1},
+          topRight: {x: 0.9, y: 0.1},
+          bottomRight: {x: 0.9, y: 0.9},
+          bottomLeft: {x: 0.1, y: 0.9},
+        },
+        source: 'opencv',
+        confidence: 0.8,
+      },
+    });
+    preview.props.onDocumentCorners({
+      nativeEvent: {
+        corners: {
+          topLeft: {x: 0.08, y: 0.08},
+          topRight: {x: 0.92, y: 0.08},
+          bottomRight: {x: 0.92, y: 0.92},
+          bottomLeft: {x: 0.08, y: 0.92},
+        },
+        source: 'fallback',
+        confidence: 0.2,
+      },
+    });
+  });
+
+  expect(renderer.root.findAll(node => node.props.children === '已检测到文档边缘')).toHaveLength(0);
 });
 
 test('forwards camera actions and toggles flash state', () => {

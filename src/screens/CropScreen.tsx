@@ -13,6 +13,7 @@ import {Button, IconButton} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {theme} from '../theme/theme';
+import {MAX_CONTROL_TEXT_SCALE, MAX_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 import Svg, {Path} from 'react-native-svg';
 
 export type CornerId = 'tl' | 'tr' | 'br' | 'bl';
@@ -58,6 +59,7 @@ function CropScreen({
   detectionConfidence,
 }: CropScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
   const [corners, setCorners] = useState<CropCorners>(initialCorners ?? DEFAULT_CORNERS);
   const cornersRef = useRef(corners);
   const dragStartRef = useRef<CropCorner | null>(null);
@@ -137,10 +139,10 @@ function CropScreen({
           style={styles.topIcon}
         />
         <View style={styles.heading}>
-          <Text accessibilityRole="header" style={styles.title}>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.title}>
             调整边缘
           </Text>
-          <Text style={styles.subtitle}>拖动四角后确认裁剪</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.subtitle}>拖动四角后确认裁剪</Text>
         </View>
         <IconButton
           accessibilityLabel="重新检测边缘"
@@ -153,7 +155,7 @@ function CropScreen({
       </View>
 
       <View style={styles.cropCanvas} testID="crop-canvas">
-        {detectionSource === 'fallback' && (detectionConfidence ?? 0) < 0.3 ? <Text accessibilityLabel="低置信度提示" style={styles.lowConfidence}>请手动确认裁剪范围</Text> : null}
+        {detectionSource === 'fallback' && (detectionConfidence ?? 0) < 0.3 ? <Text accessibilityLabel="低置信度提示" maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.lowConfidence}>请手动确认裁剪范围</Text> : null}
         <View onLayout={onPaperLayout} style={styles.paperFrame} testID="crop-frame">
           <View pointerEvents="none" style={styles.paperSurface}>
             {imagePath ? (
@@ -190,12 +192,13 @@ function CropScreen({
         </View>
       </View>
 
-      <View style={[styles.bottomBar, {paddingBottom: insets.bottom + theme.spacing.sm}]} testID="crop-actions">
+      <View style={[styles.bottomBar, metrics.isCompact && styles.bottomBarCompact, {paddingBottom: insets.bottom + theme.spacing.sm}]} testID="crop-actions">
         <View style={[styles.buttonShadow, styles.secondaryButtonShadow]} testID="button-shadow-retake">
           <View pointerEvents="none" style={styles.shadowLayer} testID="button-shadow-layer-retake" />
           <Button
             accessibilityLabel="重拍"
             mode="outlined"
+            maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
             onPress={onRetake}
             textColor={theme.colors.surfaceDefault}
             style={styles.secondaryButton}
@@ -211,6 +214,7 @@ function CropScreen({
             accessibilityLabel="确认裁剪"
             buttonColor={theme.colors.actionPrimary}
             mode="contained"
+            maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
             onPress={() => onConfirm(cornersRef.current)}
             style={styles.primaryButton}
             contentStyle={styles.buttonContent}
@@ -418,6 +422,12 @@ const styles = StyleSheet.create({
     padding: 14,
     position: 'absolute',
     right: 14,
+  },
+  bottomBarCompact: {
+    gap: 8,
+    left: 12,
+    paddingHorizontal: 10,
+    right: 12,
   },
   buttonContent: {
     minHeight: 48,

@@ -1,11 +1,12 @@
 /* eslint-disable no-void */
 import React, {useMemo, useState} from 'react';
-import {Alert, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {Button, IconButton, ProgressBar, TextInput} from 'react-native-paper';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Svg, {Path} from 'react-native-svg';
 
 import {theme} from '../theme/theme';
+import {MAX_CONTROL_TEXT_SCALE, MAX_TEXT_SCALE, MAX_TITLE_TEXT_SCALE, useResponsiveMetrics} from '../theme/responsive';
 
 export type PdfOrientation = 'auto' | 'portrait' | 'landscape';
 
@@ -40,6 +41,7 @@ function ExportScreen({
   existingFileNames = [],
 }: ExportScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
+  const metrics = useResponsiveMetrics();
   const [fileName, setFileName] = useState(initialFileName.replace(/\.pdf$/i, ''));
   const [orientation, setOrientation] = useState<PdfOrientation>('auto');
   const [exported, setExported] = useState(false);
@@ -86,10 +88,10 @@ function ExportScreen({
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, {paddingTop: insets.top + theme.spacing.sm}]}>
+      <View style={[styles.header, {paddingHorizontal: metrics.horizontalInset, paddingTop: insets.top + theme.spacing.sm}]}>
         <View style={styles.headerCopy}>
-          <Text accessibilityRole="header" style={styles.title}>导出 PDF</Text>
-          <Text style={styles.subtitle}>默认 A4，保留 10mm 白边</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={MAX_TITLE_TEXT_SCALE} style={[styles.title, {fontSize: metrics.titleSize, lineHeight: metrics.titleLineHeight}]}>导出 PDF</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.subtitle}>默认 A4，保留 10mm 白边</Text>
         </View>
         <IconButton
           accessibilityLabel="返回页面管理"
@@ -101,12 +103,17 @@ function ExportScreen({
         />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, {paddingHorizontal: metrics.horizontalInset}]}
+        keyboardShouldPersistTaps="handled"
+        style={styles.contentScroller}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
-          <Text style={styles.fieldLabel}>文件名</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.fieldLabel}>文件名</Text>
           <TextInput
             accessibilityLabel="PDF 文件名"
             mode="outlined"
+            maxFontSizeMultiplier={MAX_TEXT_SCALE}
             onChangeText={setFileName}
             style={styles.fileInput}
             outlineColor={theme.colors.inkPrimary}
@@ -117,7 +124,7 @@ function ExportScreen({
             dense
           />
 
-          <Text style={[styles.fieldLabel, styles.orientationLabel]}>页面方向</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={[styles.fieldLabel, styles.orientationLabel]}>页面方向</Text>
           <View style={styles.segmented} accessibilityRole="radiogroup">
             <OrientationButton label="自动" value="auto" selected={orientation === 'auto'} onPress={setOrientation} />
             <OrientationButton label="竖版" value="portrait" selected={orientation === 'portrait'} onPress={setOrientation} />
@@ -140,13 +147,14 @@ function ExportScreen({
 
           {exported ? (
             <View style={styles.successPanel} accessibilityLiveRegion="polite">
-              <Text style={styles.successTitle}>PDF 已保存，扫描工程仍可继续编辑。</Text>
-              <Text style={styles.successMeta}>重要文件建议通过分享转存到其他 App。</Text>
+              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.successTitle}>PDF 已保存，扫描工程仍可继续编辑。</Text>
+              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.successMeta}>重要文件建议通过分享转存到其他 App。</Text>
               <View style={styles.successShareWrapper}>
                 <View pointerEvents="none" style={styles.successShareShadow} />
                 <Button
                   accessibilityLabel="分享 PDF"
                   mode="contained"
+                  maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
                   onPress={onShare}
                   buttonColor={theme.colors.actionPrimary}
                   textColor={theme.colors.surfaceDefault}
@@ -160,10 +168,10 @@ function ExportScreen({
             </View>
           ) : null}
         </View>
-      </View>
+      </ScrollView>
 
-      <View style={[styles.bottom, {paddingBottom: insets.bottom + theme.spacing.lg}]}>
-        <View style={styles.bottomActions}>
+      <View style={[styles.bottom, {paddingBottom: insets.bottom + theme.spacing.md, paddingHorizontal: metrics.horizontalInset}]}>
+        <View style={[styles.bottomActions, {flexDirection: metrics.bottomActionDirection}]}>
           <ActionButton label="打开预览" secondary onPress={onOpenPreview} disabled={!exported} />
           <ActionButton label="导出 PDF" onPress={exportPdf} />
         </View>
@@ -190,7 +198,7 @@ function OrientationButton({
       accessibilityState={{selected}}
       onPress={() => onPress(value)}
       style={[styles.segmentButton, selected && styles.segmentButtonSelected]}>
-      <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{label}</Text>
+      <Text maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE} numberOfLines={1} style={[styles.segmentText, selected && styles.segmentTextSelected]}>{label}</Text>
     </Pressable>
   );
 }
@@ -213,6 +221,7 @@ function ActionButton({
         accessibilityLabel={label}
         accessibilityState={{disabled}}
         disabled={disabled}
+        maxFontSizeMultiplier={MAX_CONTROL_TEXT_SCALE}
         mode={secondary ? 'outlined' : 'contained'}
         onPress={onPress}
         buttonColor={secondary ? theme.colors.canvasWarm : theme.colors.actionPrimary}
@@ -228,7 +237,7 @@ function ActionButton({
 }
 
 function InfoRow({label, value, last = false}: {label: string; value: string; last?: boolean}): React.JSX.Element {
-  return <View style={[styles.infoRow, last && styles.infoRowLast]}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View>;
+  return <View style={[styles.infoRow, last && styles.infoRowLast]}><Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.infoLabel}>{label}</Text><Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.infoValue}>{value}</Text></View>;
 }
 
 function renderBackIcon({color, size}: {color: string; size: number}): React.JSX.Element {
@@ -237,26 +246,27 @@ function renderBackIcon({color, size}: {color: string; size: number}): React.JSX
 
 const styles = StyleSheet.create({
   screen: {backgroundColor: theme.colors.surfaceDefault, flex: 1},
-  header: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', paddingBottom: theme.spacing.lg, paddingHorizontal: theme.spacing.lg},
+  header: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', paddingBottom: theme.spacing.md},
   headerCopy: {flex: 1, paddingTop: theme.spacing.xs},
-  title: {color: theme.colors.inkPrimary, fontSize: 34, fontWeight: '800', letterSpacing: 0, lineHeight: 40},
-  subtitle: {color: theme.colors.inkSecondary, fontSize: 18, fontWeight: '600', lineHeight: 25, marginTop: theme.spacing.xs},
-  headerButton: {borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.md, borderWidth: 2, height: 56, margin: 0, width: 56},
-  content: {backgroundColor: theme.colors.surfaceDefault, flex: 1, paddingHorizontal: theme.spacing.lg},
-  formCard: {backgroundColor: theme.colors.canvasWarm, borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.lg, borderWidth: 3, elevation: 5, padding: theme.spacing.lg, shadowColor: theme.colors.inkPrimary, shadowOffset: {height: 9, width: 9}, shadowOpacity: 0.2, shadowRadius: 0},
-  fieldLabel: {color: theme.colors.textMuted, fontSize: 20, lineHeight: 27, marginBottom: theme.spacing.xs},
-  fileInput: {backgroundColor: theme.colors.surfaceDefault, fontSize: 20, height: 58, marginBottom: theme.spacing.lg},
+  title: {color: theme.colors.inkPrimary, fontSize: theme.typography.title, fontWeight: '800', letterSpacing: 0, lineHeight: 38},
+  subtitle: {color: theme.colors.inkSecondary, fontSize: theme.typography.body, fontWeight: '600', lineHeight: 22, marginTop: theme.spacing.xs},
+  headerButton: {borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.md, borderWidth: 2, height: 48, margin: 0, width: 48},
+  content: {backgroundColor: theme.colors.surfaceDefault, flexGrow: 1, paddingBottom: theme.spacing.md},
+  contentScroller: {flex: 1},
+  formCard: {backgroundColor: theme.colors.canvasWarm, borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.md, borderWidth: 2, elevation: 5, padding: theme.spacing.md, shadowColor: theme.colors.inkPrimary, shadowOffset: {height: 6, width: 6}, shadowOpacity: 0.2, shadowRadius: 0},
+  fieldLabel: {color: theme.colors.textMuted, fontSize: theme.typography.body, lineHeight: 22, marginBottom: theme.spacing.xs},
+  fileInput: {backgroundColor: theme.colors.surfaceDefault, fontSize: theme.typography.body, minHeight: 52, marginBottom: theme.spacing.md},
   orientationLabel: {marginBottom: theme.spacing.sm},
-  segmented: {backgroundColor: '#FFEFA4', borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.lg, borderWidth: 3, flexDirection: 'row', minHeight: 76, padding: theme.spacing.xs},
-  segmentButton: {alignItems: 'center', borderRadius: theme.radii.md, flex: 1, justifyContent: 'center', minHeight: 66},
+  segmented: {backgroundColor: '#FFEFA4', borderColor: theme.colors.inkPrimary, borderRadius: theme.radii.md, borderWidth: 2, flexDirection: 'row', minHeight: 52, padding: theme.spacing.xs},
+  segmentButton: {alignItems: 'center', borderRadius: theme.radii.sm, flex: 1, justifyContent: 'center', minHeight: 44},
   segmentButtonSelected: {backgroundColor: theme.colors.actionPrimary, elevation: 2, shadowColor: theme.colors.inkPrimary, shadowOffset: {height: 3, width: 3}, shadowOpacity: 1, shadowRadius: 0},
-  segmentText: {color: theme.colors.textMuted, fontSize: 20, fontWeight: '700'},
+  segmentText: {color: theme.colors.textMuted, fontSize: theme.typography.body, fontWeight: '700'},
   segmentTextSelected: {color: theme.colors.surfaceDefault},
-  summaryList: {marginTop: theme.spacing.lg},
-  infoRow: {alignItems: 'center', borderBottomColor: theme.colors.borderLight, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 67},
+  summaryList: {marginTop: theme.spacing.md},
+  infoRow: {alignItems: 'center', borderBottomColor: theme.colors.borderLight, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 52},
   infoRowLast: {borderBottomWidth: 0},
-  infoLabel: {color: theme.colors.inkPrimary, fontSize: 20},
-  infoValue: {color: theme.colors.inkPrimary, fontSize: 20, fontWeight: '800'},
+  infoLabel: {color: theme.colors.inkPrimary, fontSize: theme.typography.body},
+  infoValue: {color: theme.colors.inkPrimary, fontSize: theme.typography.body, fontWeight: '800'},
   progress: {backgroundColor: theme.colors.surfaceWarm, borderColor: theme.colors.inkPrimary, borderRadius: 8, borderWidth: 2, height: 10, marginTop: theme.spacing.lg, overflow: 'hidden'},
   progressIdle: {opacity: 1},
   successPanel: {borderTopColor: theme.colors.borderLight, borderTopWidth: 1, marginTop: theme.spacing.md, paddingTop: theme.spacing.md},
@@ -267,16 +277,16 @@ const styles = StyleSheet.create({
   successShareButton: {borderRadius: theme.radii.md, width: '100%'},
   successShareContent: {minHeight: 50},
   successShareLabel: {fontSize: 18, fontWeight: '800'},
-  bottom: {backgroundColor: theme.colors.canvasWarm, borderTopColor: theme.colors.borderLight, borderTopWidth: 1, paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.lg},
+  bottom: {backgroundColor: theme.colors.canvasWarm, borderTopColor: theme.colors.borderLight, borderTopWidth: 1, paddingTop: theme.spacing.md},
   bottomActions: {flexDirection: 'row', gap: theme.spacing.md},
-  actionWrapper: {flex: 1, position: 'relative'},
+  actionWrapper: {flexGrow: 1, flexBasis: 0, minWidth: 0, position: 'relative'},
   actionWrapperDisabled: {opacity: 0.58},
   actionShadow: {backgroundColor: theme.colors.inkPrimary, borderRadius: theme.radii.lg, bottom: -7, left: 7, position: 'absolute', right: -7, top: 7},
   actionButton: {borderRadius: theme.radii.lg, width: '100%'},
   secondaryAction: {borderColor: theme.colors.textMuted, borderWidth: 2},
-  actionContent: {minHeight: 64, paddingHorizontal: theme.spacing.sm},
-  actionLabel: {fontSize: 21, fontWeight: '800'},
-  secondaryActionLabel: {fontSize: 19},
+  actionContent: {minHeight: 50, paddingHorizontal: theme.spacing.xs},
+  actionLabel: {fontSize: theme.typography.button, fontWeight: '800', lineHeight: 20},
+  secondaryActionLabel: {fontSize: theme.typography.button},
 });
 
 export default ExportScreen;
