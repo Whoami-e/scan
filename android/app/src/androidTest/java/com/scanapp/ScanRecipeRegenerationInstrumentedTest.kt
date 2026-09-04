@@ -51,4 +51,16 @@ class ScanRecipeRegenerationInstrumentedTest {
     val filesRoot = ApplicationProvider.getApplicationContext<Context>().filesDir
     assertTrue(!ScanFileStore.isWithin(filesRoot, filesRoot))
   }
+
+  @Test
+  fun fileDeletionOnlyAllowsFilesInsideAppFilesOrCache() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val filesCandidate = File(context.filesDir, "scan/delete-me.jpg")
+    val cacheCandidate = File(context.cacheDir, "scan/delete-me.jpg")
+    val externalCandidate = File(context.filesDir.parentFile, "outside/delete-me.jpg")
+
+    assertTrue(ScanFileStore.isWithinAppSandbox(context.filesDir, context.cacheDir, filesCandidate))
+    assertTrue(ScanFileStore.isWithinAppSandbox(context.filesDir, context.cacheDir, cacheCandidate))
+    assertTrue(!ScanFileStore.isWithinAppSandbox(context.filesDir, context.cacheDir, externalCandidate))
+  }
 }

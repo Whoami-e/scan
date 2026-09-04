@@ -105,3 +105,21 @@ test('closes the page preview and returns to the document cards', () => {
 
   expect(renderer!.root.findAllByProps({accessibilityLabel: '第 1 页大图预览'})).toHaveLength(0);
 });
+
+test('passes the deleted page resources to the parent cleanup handler', () => {
+  const onDeletePage = jest.fn();
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<PagesScreen pages={pages} onDeletePage={onDeletePage} />);
+  });
+
+  const alert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(((_title: string, _message: string, actions?: Array<{text?: string; onPress?: () => void}>) => {
+    actions?.find(action => action.text === '删除')?.onPress?.();
+  }) as never);
+  ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({accessibilityLabel: '删除第 1 页'}).props.onPress();
+  });
+
+  expect(onDeletePage).toHaveBeenCalledWith(pages[0]);
+  alert.mockRestore();
+});

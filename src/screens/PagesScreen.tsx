@@ -19,7 +19,7 @@ export interface PagesScreenProps {
   onImport?: () => void;
   onExport?: () => void;
   onRename?: (title: string) => void;
-  onDeletePage?: (pageId: string) => void;
+  onDeletePage?: (page: ScanPage) => void;
   onDeleteDocument?: () => void;
   onReorder?: (pages: ScanPage[]) => void;
 }
@@ -84,7 +84,7 @@ function PagesScreen({
         onPress: () => {
           const nextPages = localPages.filter(item => item.id !== page.id);
           setLocalPages(nextPages);
-          onDeletePage?.(page.id);
+          onDeletePage?.(page);
           onReorder?.(nextPages);
         },
       },

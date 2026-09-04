@@ -245,7 +245,16 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
   @ReactMethod
   fun removeFile(filePath: String, promise: Promise) {
     try {
-      File(Uri.parse(filePath).path ?: filePath).delete()
+      val candidate = File(Uri.parse(filePath).path ?: filePath).canonicalFile
+      require(
+        ScanFileStore.isWithinAppSandbox(
+          context.filesDir,
+          context.cacheDir,
+          candidate,
+        ),
+      ) { "文件路径不在 App 沙盒内" }
+      require(!candidate.exists() || candidate.isFile) { "只能删除文件" }
+      if (candidate.exists() && !candidate.delete()) throw IllegalStateException("文件删除失败")
       promise.resolve(null)
     } catch (error: Exception) {
       promise.reject("FILE_DELETE_FAILED", error.message, error)
