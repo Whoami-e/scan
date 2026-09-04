@@ -29,6 +29,10 @@ class ScanFileStore(private val context: Context) {
       val candidatePath = candidate.canonicalFile.path
       return candidatePath.startsWith("$rootPath${File.separator}")
     }
+
+    @JvmStatic
+    fun isWithinAppSandbox(filesRoot: File, cacheRoot: File, candidate: File): Boolean =
+      isWithin(filesRoot, candidate) || isWithin(cacheRoot, candidate)
   }
   fun createWorkspace(documentId: String): File = workspace(documentId).apply { mkdirs() }
 

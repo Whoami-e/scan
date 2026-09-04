@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
+import {Alert} from 'react-native';
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({children}: {children: React.ReactNode}) => children,
@@ -46,6 +47,7 @@ jest.mock('../src/data/fileStore', () => ({
 }));
 
 import App from '../App';
+import {fileStore} from '../src/data/fileStore';
 import {captureDocument, importDocuments} from '../src/native/mediaPicker';
 import {scannerModule} from '../src/native/scannerModule';
 
@@ -118,6 +120,34 @@ test('commits a captured photo through crop and enhance into the document', asyn
   await ReactTestRenderer.act(async () => { await Promise.resolve(); });
   expect(root.findAll(node => node.props.children === '当前文档').length).toBeGreaterThan(0);
   expect(root.findByProps({accessibilityLabel: '第 1 页预览'})).toBeDefined();
+});
+
+test('deleting a page removes its sandbox image copies', async () => {
+  const removeFile = jest.mocked(fileStore.removeFile);
+  removeFile.mockClear();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(((_title: string, _message: string, actions?: Array<{text?: string; onPress?: () => void}>) => {
+    actions?.find(action => action.text === '删除')?.onPress?.();
+  }) as never);
+
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  const root = renderer!.root;
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '扫描'}).props.onPress());
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '拍照'}).props.onPress());
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '确认裁剪'}).props.onPress());
+  await ReactTestRenderer.act(async () => root.findByProps({accessibilityLabel: '加入文档'}).props.onPress());
+
+  ReactTestRenderer.act(() => root.findByProps({accessibilityLabel: '删除第 1 页'}).props.onPress());
+  await ReactTestRenderer.act(async () => { await Promise.resolve(); });
+
+  expect(removeFile).toHaveBeenCalledTimes(2);
+  expect(removeFile.mock.calls.map(([path]) => path)).toEqual(expect.arrayContaining([
+    expect.stringContaining('-original-captured.jpg'),
+    expect.stringContaining('-processed-cropped.jpg'),
+  ]));
+  alert.mockRestore();
 });
 
 test('returns the enhancement selector to original when native enhancement fails', async () => {
