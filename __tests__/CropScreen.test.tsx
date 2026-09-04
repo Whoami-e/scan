@@ -67,6 +67,16 @@ test('uses the captured image as the crop canvas source', () => {
   expect(image.props.source).toEqual({uri: 'file:///tmp/captured.jpg'});
 });
 
+test.each(['fairscan', 'opencv'] as const)('does not warn for %s detections', source => {
+  const renderer = renderCrop({detectionSource: source, detectionConfidence: 0.8});
+  expect(renderer.root.findAllByProps({accessibilityLabel: '低置信度提示'})).toHaveLength(0);
+});
+
+test('warns only for the low confidence fallback', () => {
+  const renderer = renderCrop({detectionSource: 'fallback', detectionConfidence: 0.2});
+  expect(renderer.root.findByProps({accessibilityLabel: '低置信度提示'}).props.children).toBe('请手动确认裁剪范围');
+});
+
 test('uses an SVG icon for redetect and does not render document guide lines', () => {
   const renderer = renderCrop();
   const redetect = renderer.root.findByProps({accessibilityLabel: '重新检测边缘'});

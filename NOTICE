@@ -10,3 +10,11 @@ Source artifact: org.opencv:opencv:4.12.0
 Upstream license: https://github.com/opencv/opencv/blob/4.12.0/LICENSE
 
 本项目仅使用 OpenCV 的公开 Android API。未随本项目分发 MakeACopy 源码、应用资源或其商标。
+
+FairScan v2.2.0 (commit 2297341)
+Copyright 2025-2026 The FairScan authors.
+Algorithm sources are adapted from https://github.com/pynicolas/FairScan at
+v2.2.0 / 22973418c50545a5907b44d5329cf38f4398ad5d. The adapted files are
+licensed under the GNU General Public License, version 3 (GPLv3). See the
+complete GPLv3 text in LICENSE and the source/model provenance in
+docs/third-party/fairscan-sources.md and docs/third-party/fairscan-model.md.

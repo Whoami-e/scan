@@ -16,9 +16,18 @@ import {theme} from '../theme/theme';
 const NativeCameraPreview = requireNativeComponent<{
   enabled?: boolean;
   flashOn?: boolean;
+  onDocumentCorners?: (event: {nativeEvent: DocumentCornersEvent}) => void;
   accessibilityLabel?: string;
   style?: object;
 }>('ScannerCameraView');
+
+interface DocumentCornersEvent {
+  corners: {topLeft: Point; topRight: Point; bottomRight: Point; bottomLeft: Point};
+  source: 'fairscan' | 'opencv' | 'fallback';
+  confidence: number;
+}
+
+interface Point {x: number; y: number}
 
 export interface CameraScreenProps {
   onBack?: () => void;
@@ -31,6 +40,7 @@ export interface CameraScreenProps {
   processingLabel?: string;
   cameraError?: string;
   cameraEnabled?: boolean;
+  onDocumentCorners?: (event: DocumentCornersEvent) => void;
 }
 
 function CameraScreen({
@@ -44,10 +54,12 @@ function CameraScreen({
   processingLabel = '正在处理照片',
   cameraError,
   cameraEnabled = true,
+  onDocumentCorners,
 }: CameraScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [flashOn, setFlashOn] = useState(false);
   const actionInFlight = useRef(false);
+  const [documentCorners, setDocumentCorners] = useState<DocumentCornersEvent | null>(null);
   const statusLabel = permissionDenied ? '相机权限已拒绝' : cameraError ?? '已检测到文档边缘';
 
   function toggleFlash(): void {
@@ -82,17 +94,29 @@ function CameraScreen({
     }
   }
 
+  function handleDocumentCorners(event: {nativeEvent: DocumentCornersEvent}): void {
+    const next = event.nativeEvent;
+    const points = next?.corners ? Object.values(next.corners) : [];
+    if (!next || !Number.isFinite(next.confidence) || !next.source || points.length !== 4 || points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) {
+      return;
+    }
+    setDocumentCorners(next);
+    onDocumentCorners?.(next);
+  }
+
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" />
       <View accessibilityLabel="相机画面区域" style={styles.viewport}>
         <View style={styles.cameraSurface}>
-          <NativeCameraPreview
-            accessibilityLabel="实时摄像头预览"
-            enabled={cameraEnabled && !permissionDenied}
-            flashOn={flashOn}
-            style={styles.nativePreview}
-          />
+            <NativeCameraPreview
+              accessibilityLabel="实时摄像头预览"
+              enabled={cameraEnabled && !permissionDenied}
+              flashOn={flashOn}
+              onDocumentCorners={handleDocumentCorners}
+              style={styles.nativePreview}
+            />
+            {documentCorners ? <Svg pointerEvents="none" testID="camera-document-corners" style={styles.cornerOverlay} viewBox="0 0 1 1"><Path d={cornerPath(documentCorners)} fill="none" stroke={theme.colors.actionPrimary} strokeWidth={0.012} vectorEffect="non-scaling-stroke" /></Svg> : null}
           <View
             testID="camera-processing-shade"
             style={[styles.previewShade, isProcessing && styles.processingShade]}
@@ -168,6 +192,11 @@ function CameraScreen({
   );
 }
 
+function cornerPath(event: DocumentCornersEvent): string {
+  const {topLeft, topRight, bottomRight, bottomLeft} = event.corners;
+  return `M ${topLeft.x} ${topLeft.y} L ${topRight.x} ${topRight.y} L ${bottomRight.x} ${bottomRight.y} L ${bottomLeft.x} ${bottomLeft.y} Z`;
+}
+
 function BackIcon(): React.JSX.Element {
   return <Svg height={22} viewBox="0 0 24 24" width={22}><Path d="m15 18-6-6 6-6" fill="none" stroke={theme.colors.surfaceDefault} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></Svg>;
 }
@@ -195,6 +224,7 @@ const styles = StyleSheet.create({
   viewport: {bottom: 0, left: 0, overflow: 'hidden', position: 'absolute', right: 0, top: 0, zIndex: 0},
   cameraSurface: {backgroundColor: '#211A3D', flex: 1, overflow: 'hidden'},
   nativePreview: {bottom: 0, left: 0, position: 'absolute', right: 0, top: 0},
+  cornerOverlay: {bottom: 0, height: '100%', left: 0, position: 'absolute', right: 0, top: 0, width: '100%'},
   previewShade: {backgroundColor: 'rgba(23,17,41,0.22)', bottom: 0, left: 0, position: 'absolute', right: 0, top: 0},
   processingShade: {backgroundColor: theme.colors.darkWorkspace, opacity: 1, zIndex: 2},
   viewportMessage: {alignItems: 'center', bottom: 178, flexDirection: 'row', gap: 8, justifyContent: 'center', left: 16, position: 'absolute', right: 16, zIndex: 3},

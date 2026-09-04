@@ -15,7 +15,7 @@ import {DocumentCorners, EnhanceMode} from '../data/models';
 export interface EdgeDetectionResult {
   corners: DocumentCorners;
   confidence: number;
-  source?: 'opencv' | 'fallback';
+  source: 'fairscan' | 'opencv' | 'fallback';
 }
 
 export interface PdfOptions {
@@ -40,6 +40,10 @@ export interface ScannerModule {
     imagePath: string,
     mode: EnhanceMode,
   ): Promise<{processedImagePath: string}>;
+  renderPage(
+    originalImagePath: string,
+    recipe: PageRenderRecipe,
+  ): Promise<{processedImagePath: string}>;
   createPdf(
     pageImagePaths: string[],
     outputName: string,
@@ -49,6 +53,13 @@ export interface ScannerModule {
   shareFile(filePath: string): Promise<void>;
   openFile(filePath: string): Promise<void>;
   exportLogs(): Promise<{logFilePath: string}>;
+}
+
+export interface PageRenderRecipe {
+  corners?: DocumentCorners;
+  rotationDegrees: 0 | 90 | 180 | 270;
+  enhanceMode: EnhanceMode;
+  processedImagePath?: string;
 }
 
 const nativeScanner = NativeModules.ScannerModule as
@@ -91,6 +102,10 @@ export const scannerModule: ScannerModule = {
   enhanceImage: (imagePath, mode) =>
     nativeScanner?.enhanceImage?.(imagePath, mode) ??
     Promise.reject(unavailable('enhanceImage')),
+
+  renderPage: (originalImagePath, recipe) =>
+    nativeScanner?.renderPage?.(originalImagePath, recipe) ??
+    Promise.reject(unavailable('renderPage')),
 
   createPdf: (pageImagePaths, outputName, options) =>
     nativeScanner?.createPdf?.(pageImagePaths, outputName, options) ??

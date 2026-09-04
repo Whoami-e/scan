@@ -90,4 +90,19 @@ class PdfExporterInstrumentedTest {
     assertFalse(File(root, "$outputName.pdf.tmp").exists())
     assertFalse(File(root, "$outputName.pdf").exists())
   }
+
+  @Test
+  fun exportsTwentyPagesIntoOnePdf() {
+    val pages = (0 until 20).map { index ->
+      File(root, "page-$index.png").also { file ->
+        Bitmap.createBitmap(120, 160, Bitmap.Config.ARGB_8888).apply {
+          compress(Bitmap.CompressFormat.PNG, 100, file.outputStream())
+          recycle()
+        }
+      }
+    }
+    val output = PdfExporter.create(context, pages, "twenty-pages", PdfExporter.Options(), root)
+    assertTrue(output.isFile)
+    assertTrue(output.length() > 0L)
+  }
 }

@@ -43,6 +43,8 @@ function App(): React.JSX.Element {
   const [pendingImagePath, setPendingImagePath] = useState<string>();
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
   const [pendingCorners, setPendingCorners] = useState<CropCorners>();
+  const [pendingDetectionSource, setPendingDetectionSource] = useState<'fairscan' | 'opencv' | 'fallback'>('fallback');
+  const [pendingDetectionConfidence, setPendingDetectionConfidence] = useState(0.2);
   const [pendingCroppedPath, setPendingCroppedPath] = useState<string>();
   const [pendingProcessedPath, setPendingProcessedPath] = useState<string>();
   const [pendingMode, setPendingMode] = useState<EnhanceMode>('original');
@@ -93,6 +95,8 @@ function App(): React.JSX.Element {
     setPendingProcessedPath(undefined);
     setPendingMode('original');
     setPendingCorners(undefined);
+    setPendingDetectionSource('fallback');
+    setPendingDetectionConfidence(0.2);
     setPendingRotation(0);
     setPendingSource(source);
     setCameraProcessing(false);
@@ -101,6 +105,8 @@ function App(): React.JSX.Element {
       const detection = await scannerModule.detectDocumentEdges(imagePath);
       const c = detection.corners;
       setPendingCorners({tl: c.topLeft, tr: c.topRight, br: c.bottomRight, bl: c.bottomLeft});
+      setPendingDetectionSource(detection.source);
+      setPendingDetectionConfidence(detection.confidence);
     } catch {
       // 原生检测失败时，裁剪页继续使用可手动调整的默认角点。
     }
@@ -145,12 +151,14 @@ function App(): React.JSX.Element {
     setPendingCorners(corners);
     setCameraProcessing(true);
     try {
-      const result = await scannerModule.cropAndWarp(pendingImagePath, {
-        topLeft: corners.tl,
-        topRight: corners.tr,
-        bottomRight: corners.br,
-        bottomLeft: corners.bl,
-      });
+      const recipe = {
+        corners: {topLeft: corners.tl, topRight: corners.tr, bottomRight: corners.br, bottomLeft: corners.bl},
+        rotationDegrees: 0 as const,
+        enhanceMode: 'original' as const,
+      };
+      const result = typeof scannerModule.renderPage === 'function'
+        ? await scannerModule.renderPage(pendingImagePath, recipe)
+        : await scannerModule.cropAndWarp(pendingImagePath, recipe.corners);
       setPendingCroppedPath(result.processedImagePath);
       setPendingProcessedPath(result.processedImagePath);
     } catch {
@@ -163,12 +171,20 @@ function App(): React.JSX.Element {
 
   async function changeEnhanceMode(mode: EnhanceMode): Promise<void> {
     setPendingMode(mode);
-    const sourcePath = pendingCroppedPath ?? pendingProcessedPath ?? pendingImagePath;
+    const sourcePath = typeof scannerModule.renderPage === 'function'
+      ? pendingImagePath
+      : (pendingCroppedPath ?? pendingImagePath);
     if (!sourcePath) return;
     const requestId = enhanceRequestRef.current + 1;
     enhanceRequestRef.current = requestId;
     try {
-      const result = await scannerModule.enhanceImage(sourcePath, mode);
+      const result = typeof scannerModule.renderPage === 'function'
+        ? await scannerModule.renderPage(sourcePath, {
+        corners: pendingCorners ? {topLeft: pendingCorners.tl, topRight: pendingCorners.tr, bottomRight: pendingCorners.br, bottomLeft: pendingCorners.bl} : undefined,
+        rotationDegrees: pendingRotation as 0 | 90 | 180 | 270,
+        enhanceMode: mode,
+      })
+        : await scannerModule.enhanceImage(sourcePath, mode);
       if (enhanceRequestRef.current === requestId) setPendingProcessedPath(result.processedImagePath);
     } catch {
       if (enhanceRequestRef.current === requestId) {
@@ -179,18 +195,20 @@ function App(): React.JSX.Element {
   }
 
   async function rotatePendingImage(): Promise<void> {
-    const sourcePath = pendingCroppedPath ?? pendingImagePath;
+    const sourcePath = typeof scannerModule.renderPage === 'function'
+      ? pendingImagePath
+      : (pendingCroppedPath ?? pendingImagePath);
     if (!sourcePath) return;
     const nextRotation = ((pendingRotation + 90) % 360) as 0 | 90 | 180 | 270;
     try {
-      const rotated = await scannerModule.rotateImage(sourcePath, 90);
-      setPendingCroppedPath(rotated.processedImagePath);
-      let processedPath = rotated.processedImagePath;
-      if (pendingMode !== 'original') {
-        const enhanced = await scannerModule.enhanceImage(rotated.processedImagePath, pendingMode);
-        processedPath = enhanced.processedImagePath;
-      }
-      setPendingProcessedPath(processedPath);
+      const rendered = typeof scannerModule.renderPage === 'function'
+        ? await scannerModule.renderPage(sourcePath, {
+        corners: pendingCorners ? {topLeft: pendingCorners.tl, topRight: pendingCorners.tr, bottomRight: pendingCorners.br, bottomLeft: pendingCorners.bl} : undefined,
+        rotationDegrees: nextRotation,
+        enhanceMode: pendingMode,
+      })
+        : await scannerModule.rotateImage(sourcePath, 90);
+      setPendingProcessedPath(rendered.processedImagePath);
       setPendingRotation(nextRotation);
     } catch {
       // 原生旋转失败时保留当前预览和角度，用户仍可重试。
@@ -207,7 +225,8 @@ function App(): React.JSX.Element {
       originalPath = await fileStore.savePageImage(document.id, pageId, pendingImagePath, 'original');
       processedPath = await fileStore.savePageImage(document.id, pageId, processedPath, 'processed');
     } catch {
-      // 原生沙盒不可用时保留可编辑的原图 URI，后续仍可重试持久化。
+      // Never persist external or incomplete paths when the App sandbox is unavailable.
+      return;
     }
     const page: ScanPage = {
       id: pageId,
@@ -230,7 +249,7 @@ function App(): React.JSX.Element {
 
   function renderScreen(): React.JSX.Element {
     if (screen === 'camera') return <CameraScreen cameraError={cameraError} isProcessing={cameraProcessing} onBack={() => setScreen('home')} onCapture={capturePhoto} onImport={importPhotos} onPermission={() => { setPermissionDenied(true); Alert.alert('需要相机权限', '请在系统设置中允许相机权限后继续。', [{text: '取消', style: 'cancel'}, {text: '打开设置', onPress: () => void Linking.openSettings()}]); }} onFlashToggle={enabled => { void scannerModule.setFlash(enabled).catch(() => undefined); }} permissionDenied={permissionDenied} />;
-    if (screen === 'crop') return <CropScreen imagePath={pendingImagePath} initialCorners={pendingCorners} onBack={() => setScreen('camera')} onConfirm={confirmCrop} onRetake={() => setScreen('camera')} />;
+    if (screen === 'crop') return <CropScreen imagePath={pendingImagePath} initialCorners={pendingCorners} detectionSource={pendingDetectionSource} detectionConfidence={pendingDetectionConfidence} onBack={() => setScreen('camera')} onConfirm={confirmCrop} onRetake={() => setScreen('camera')} />;
     if (screen === 'enhance') return <EnhanceScreen imagePath={pendingProcessedPath ?? pendingImagePath} mode={pendingMode} rotationDegrees={pendingRotation as 0 | 90 | 180 | 270} onBack={() => setScreen('crop')} onModeChange={changeEnhanceMode} onRotate={rotatePendingImage} onRecrop={() => setScreen('crop')} onAddPage={addPage} />;
     if (screen === 'pages') return <PagesScreen documentTitle={document.title} pages={document.pages} onBack={() => setScreen('home')} onContinueScan={beginScan} onImport={importPhotos} onExport={() => setScreen('export')} onRename={title => touchDocument({...document, title})} onDeletePage={id => touchDocument({...document, pages: document.pages.filter(page => page.id !== id)})} onDeleteDocument={() => { void fileStore.deleteWorkspace(document.id).catch(() => undefined); void fileStore.deleteDocument(document.id).catch(() => undefined); setDocument(createEmptyDocument(document.id, new Date().toISOString())); setScreen('home'); }} onReorder={pages => touchDocument({...document, pages})} />;
     if (screen === 'export') return <ExportScreen pageCount={document.pages.length} initialFileName={`${document.title}.pdf`} existingFileNames={pdfNames} onBack={() => setScreen('pages')} onExport={async (name, orientation: PdfOrientation) => { const result = await scannerModule.createPdf(document.pages.map(page => page.processedImagePath ?? page.originalImagePath), name, {pageSize: 'A4', marginMillimeters: 10, orientation}); setLastPdfPath(result.pdfPath); setLastPdfDocumentId(document.id); setPdfNames(prev => prev.includes(name) ? prev : [...prev, name]); touchDocument({...document, pdfPath: result.pdfPath, status: 'exported'}); }} onOpenPreview={() => { const path = document.pdfPath ?? (lastPdfDocumentId === document.id ? lastPdfPath : undefined); if (!path) { Alert.alert('暂无 PDF', '请先导出 PDF 后再打开预览。'); return; } void scannerModule.openFile(path).catch(() => Alert.alert('无法打开预览', '设备上没有可用的 PDF 阅读器，请稍后重试。')); }} onShare={() => { const path = document.pdfPath ?? (lastPdfDocumentId === document.id ? lastPdfPath : undefined); if (!path) { Alert.alert('暂无 PDF', '请先导出 PDF 后再分享。'); return; } void scannerModule.shareFile(path).catch(() => Alert.alert('分享失败', 'PDF 已保存在 App 沙盒中，你可以稍后重试分享。')); }} />;

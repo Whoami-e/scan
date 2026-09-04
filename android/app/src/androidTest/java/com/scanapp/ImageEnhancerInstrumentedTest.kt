@@ -103,4 +103,20 @@ class ImageEnhancerInstrumentedTest {
       source.recycle()
     }
   }
+
+  @Test
+  fun blackwhiteProducesBinaryPixels() {
+    val source = Bitmap.createBitmap(intArrayOf(Color.BLACK, Color.WHITE, Color.GRAY), 3, 1, Bitmap.Config.ARGB_8888)
+    try {
+      val result = ImageEnhancer.apply(source, "blackwhite")
+      try {
+        for (x in 0 until result.width) {
+          val pixel = result.getPixel(x, 0)
+          assertTrue(Color.red(pixel) == 0 || Color.red(pixel) == 255)
+          assertEquals(Color.red(pixel), Color.green(pixel))
+          assertEquals(Color.green(pixel), Color.blue(pixel))
+        }
+      } finally { result.recycle() }
+    } finally { source.recycle() }
+  }
 }

@@ -18,6 +18,7 @@ import java.io.FileOutputStream
 import kotlin.math.min
 
 class ScannerModule(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
+  private val fairScanDetector by lazy { FairScanDocumentDetector(context) }
   override fun getName(): String = "ScannerModule"
 
   @ReactMethod
@@ -36,7 +37,7 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
     var bitmap: Bitmap? = null
     try {
       bitmap = loadBitmap(imagePath) ?: throw IllegalStateException("图片无法读取")
-      val detection = DocumentDetector.detect(bitmap!!)
+      val detection = DocumentDetector.detect(bitmap!!, fairScanDetector)
       val cornersPx = detection.cornersPx
       val corners = Arguments.createMap().apply {
         putMap("topLeft", point(cornersPx[0].toDouble() / bitmap!!.width, cornersPx[1].toDouble() / bitmap!!.height))
@@ -98,6 +99,44 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
     } finally {
       result?.takeIf { it !== bitmap }?.recycle()
       bitmap?.recycle()
+    }
+  }
+
+  @ReactMethod
+  fun renderPage(originalImagePath: String, recipe: ReadableMap, promise: Promise) {
+    var original: Bitmap? = null
+    var warped: Bitmap? = null
+    var rotated: Bitmap? = null
+    var rendered: Bitmap? = null
+    var output: File? = null
+    try {
+      original = loadBitmap(originalImagePath) ?: throw IllegalStateException("图片无法读取")
+      val corners = recipe.getMap("corners")?.let(::readNormalizedQuad)
+      val base = if (corners != null) {
+        PerspectiveWarper.warp(original!!, corners).also { warped = it }
+      } else original!!
+      val degrees = ((recipe.getInt("rotationDegrees") % 360) + 360) % 360
+      val rotatedBase = if (degrees == 0) base else Bitmap.createBitmap(base, 0, 0, base.width, base.height, Matrix().apply { postRotate(degrees.toFloat()) }, true).also { rotated = it }
+      val mode = recipe.getString("enhanceMode") ?: "original"
+      rendered = ImageEnhancer.apply(rotatedBase, mode)
+      val requestedOutput = recipe.getString("processedImagePath")?.let { path ->
+        parseFile(path).also { candidate ->
+          require(
+            ScanFileStore.isWithin(File(context.filesDir, "scan"), candidate) ||
+              ScanFileStore.isWithin(context.cacheDir, candidate),
+          ) { "派生图片路径不在 App 沙盒内" }
+        }
+      }
+      output = requestedOutput ?: File(context.cacheDir, "scan-render-${System.currentTimeMillis()}.jpg")
+      ScanFileStore(context).writeBitmapAtomically(output, rendered!!)
+      promise.resolve(Arguments.createMap().apply { putString("processedImagePath", "file://${output!!.absolutePath}") })
+    } catch (error: Throwable) {
+      promise.reject("RENDER_FAILED", "页面渲染失败", error)
+    } finally {
+      rendered?.takeIf { it !== rotated && it !== warped && it !== original }?.recycle()
+      rotated?.takeIf { it !== warped && it !== original }?.recycle()
+      warped?.takeIf { it !== original }?.recycle()
+      original?.recycle()
     }
   }
 
@@ -273,6 +312,8 @@ class ScannerModule(private val context: ReactApplicationContext) : ReactContext
       BitmapFactory.decodeFile(uri.path ?: path)
     }
   }
+
+  private fun parseFile(path: String): File = File(Uri.parse(path).path ?: path)
 
   private fun loadBitmapForEnhancement(path: String): Bitmap? {
     val uri = Uri.parse(path)

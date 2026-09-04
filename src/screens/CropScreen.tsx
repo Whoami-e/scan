@@ -27,6 +27,8 @@ export type CropCorners = Record<CornerId, CropCorner>;
 export interface CropScreenProps {
   imagePath?: string;
   initialCorners?: CropCorners;
+  detectionSource?: 'fairscan' | 'opencv' | 'fallback';
+  detectionConfidence?: number;
   onBack?: () => void;
   onRetake?: () => void;
   onConfirm?: (corners: CropCorners) => void;
@@ -52,6 +54,8 @@ function CropScreen({
   onRedetect = () => undefined,
   imagePath,
   initialCorners,
+  detectionSource,
+  detectionConfidence,
 }: CropScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [corners, setCorners] = useState<CropCorners>(initialCorners ?? DEFAULT_CORNERS);
@@ -149,6 +153,7 @@ function CropScreen({
       </View>
 
       <View style={styles.cropCanvas} testID="crop-canvas">
+        {detectionSource === 'fallback' && (detectionConfidence ?? 0) < 0.3 ? <Text accessibilityLabel="低置信度提示" style={styles.lowConfidence}>请手动确认裁剪范围</Text> : null}
         <View onLayout={onPaperLayout} style={styles.paperFrame} testID="crop-frame">
           <View pointerEvents="none" style={styles.paperSurface}>
             {imagePath ? (
@@ -332,6 +337,15 @@ const styles = StyleSheet.create({
     paddingBottom: 90,
     paddingHorizontal: 14,
     paddingTop: 14,
+  },
+  lowConfidence: {
+    backgroundColor: 'rgba(20,20,24,0.82)',
+    color: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    top: 8,
+    zIndex: 3,
   },
   paperFrame: {
     aspectRatio: 0.6,

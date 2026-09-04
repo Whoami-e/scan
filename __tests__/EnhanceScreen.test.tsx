@@ -73,7 +73,7 @@ test('keeps the preview frame styling stable while switching modes', () => {
   expect(preview()).toEqual(expect.objectContaining({backgroundColor: '#FFFFFF'}));
   expect(preview().borderWidth).toBeUndefined();
 
-  expect(renderer!.root.findAllByProps({accessibilityLabel: '黑白'})).toHaveLength(0);
+  expect(renderer!.root.findAllByProps({accessibilityLabel: '黑白'})).not.toHaveLength(0);
   expect(renderer!.root.findAllByProps({accessibilityLabel: '原图'})).not.toHaveLength(0);
   expect(renderer!.root.findAllByProps({accessibilityLabel: '增强'})).not.toHaveLength(0);
   expect(renderer!.root.findAllByProps({accessibilityLabel: '灰度'})).not.toHaveLength(0);
@@ -100,4 +100,21 @@ test('switches the preview frame to landscape after a 90 degree rotation', () =>
 
   const previewStyle = flattenStyle(renderer!.root.findByProps({testID: 'enhance-preview-paper'}).props.style);
   expect(previewStyle.aspectRatio).toBeCloseTo(1.41, 2);
+});
+
+test('offers blackwhite mode and passes it through unchanged', () => {
+  const onModeChange = jest.fn();
+  const onAddPage = jest.fn();
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<EnhanceScreen onModeChange={onModeChange} onAddPage={onAddPage} />);
+  });
+
+  ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({accessibilityLabel: '黑白'}).props.onPress();
+    renderer!.root.findByProps({accessibilityLabel: '加入文档'}).props.onPress();
+  });
+
+  expect(onModeChange).toHaveBeenCalledWith('blackwhite');
+  expect(onAddPage).toHaveBeenCalledWith('blackwhite');
 });

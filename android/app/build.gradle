@@ -106,9 +106,15 @@ android {
         }
     }
     sourceSets {
+        main {
+            assets.srcDirs += ["src/main/assets"]
+        }
         release {
             assets.srcDirs += [layout.buildDirectory.dir("generated/legal-assets")]
         }
+    }
+    aaptOptions {
+        noCompress 'tflite'
     }
 }
 
@@ -117,6 +123,7 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("org.opencv:opencv:4.12.0")
+    implementation("com.google.ai.edge.litert:litert:1.4.1")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")

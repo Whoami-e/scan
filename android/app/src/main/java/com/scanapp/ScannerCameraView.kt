@@ -19,11 +19,16 @@ import android.view.Surface
 import android.view.TextureView
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactContext
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.uimanager.events.RCTEventEmitter
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import java.util.Locale
+import com.scanapp.fairscan.camera.QuadStabilizer
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -38,6 +43,12 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   private val captureLock = Any()
   private var pendingCapture: PendingCapture? = null
   private val captureExecutor = Executors.newSingleThreadExecutor()
+  private val liveAnalysisExecutor = Executors.newSingleThreadExecutor()
+  private val liveAnalysisInFlight = AtomicBoolean(false)
+  private val quadStabilizer = QuadStabilizer()
+  private val liveAnalysisGeneration = AtomicLong(0L)
+  @Volatile private var lastLiveAnalysisNanos = 0L
+  @Volatile private var liveDetector: FairScanDocumentDetector? = null
   private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
   private var cameraEnabled = true
   private var openingCamera = false
@@ -57,7 +68,11 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   }
 
   fun onPermissionResult(requestCode: Int, grantResults: IntArray) {
-    if (requestCode != REQUEST_CAMERA || grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) return
+    if (requestCode != REQUEST_CAMERA) return
+    if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) {
+      resetLiveAnalysis()
+      return
+    }
     post {
       if (cameraEnabled && isAvailable) openCamera()
     }
@@ -72,6 +87,7 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   }
 
   fun onHostPause() {
+    resetLiveAnalysis()
     post {
       clearPendingCapture("CAMERA_PAUSED", "相机已暂停")
       closeCamera()
@@ -283,7 +299,94 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
     imageReader?.close()
     imageReader = null
     previewSize = null
+    resetLiveAnalysis()
+    closeLiveDetectorAsync()
     clearPendingCapture("CAMERA_CLOSED", "相机已关闭")
+  }
+
+  private fun closeLiveDetectorAsync() {
+    liveAnalysisExecutor.execute {
+      val detector = liveDetector ?: return@execute
+      try {
+        detector.close()
+      } catch (_: Throwable) {
+        // Detector shutdown is best-effort; lifecycle teardown must continue.
+      } finally {
+        if (liveDetector === detector) liveDetector = null
+      }
+    }
+  }
+
+  private fun resetLiveAnalysis() {
+    liveAnalysisGeneration.incrementAndGet()
+    quadStabilizer.reset()
+    lastLiveAnalysisNanos = 0L
+  }
+
+  private fun scheduleLiveAnalysis() {
+    if (!cameraEnabled || camera == null || !isAvailable) return
+    val now = System.nanoTime()
+    if (now - lastLiveAnalysisNanos < LIVE_ANALYSIS_INTERVAL_NANOS) return
+    if (!liveAnalysisInFlight.compareAndSet(false, true)) return
+    lastLiveAnalysisNanos = now
+    val generation = liveAnalysisGeneration.get()
+    val frame = try { getBitmap(LIVE_ANALYSIS_MAX_EDGE, LIVE_ANALYSIS_MAX_EDGE) } catch (_: Throwable) { null }
+    if (frame == null) {
+      liveAnalysisInFlight.set(false)
+      return
+    }
+    liveAnalysisExecutor.execute {
+      try {
+        val detector = liveDetector ?: FairScanDocumentDetector(context).also { liveDetector = it }
+        val detection = DocumentDetector.detect(frame, detector, AnalysisMode.LIVE_ANALYSIS)
+        val corners = detection.cornersPx
+        val quad = ScanQuad(
+          ScanPoint((corners[0] / frame.width).toDouble(), (corners[1] / frame.height).toDouble()),
+          ScanPoint((corners[2] / frame.width).toDouble(), (corners[3] / frame.height).toDouble()),
+          ScanPoint((corners[4] / frame.width).toDouble(), (corners[5] / frame.height).toDouble()),
+          ScanPoint((corners[6] / frame.width).toDouble(), (corners[7] / frame.height).toDouble()),
+        )
+        if (generation == liveAnalysisGeneration.get() && detection.source != DocumentDetector.Source.FALLBACK) {
+          quadStabilizer.offer(quad, System.nanoTime())?.let { stable ->
+            emitDocumentCorners(stable, detection.source, detection.confidence, generation)
+          }
+        } else {
+          quadStabilizer.reset()
+        }
+      } catch (_: Throwable) {
+        quadStabilizer.reset()
+      } finally {
+        frame.recycle()
+        liveAnalysisInFlight.set(false)
+      }
+    }
+  }
+
+  private fun emitDocumentCorners(quad: ScanQuad, source: DocumentDetector.Source, confidence: Float, generation: Long) {
+    val points = listOf(quad.topLeft, quad.topRight, quad.bottomRight, quad.bottomLeft)
+    if (!confidence.isFinite() || points.any { !it.x.isFinite() || !it.y.isFinite() || it.x !in 0.0..1.0 || it.y !in 0.0..1.0 }) return
+    val reactContext = context as? ReactContext ?: return
+    val corners = Arguments.createMap().apply {
+      putMap("topLeft", pointMap(quad.topLeft))
+      putMap("topRight", pointMap(quad.topRight))
+      putMap("bottomRight", pointMap(quad.bottomRight))
+      putMap("bottomLeft", pointMap(quad.bottomLeft))
+    }
+    val event = Arguments.createMap().apply {
+      putMap("corners", corners)
+      putString("source", source.name.lowercase(Locale.ROOT))
+      putDouble("confidence", confidence.coerceIn(0f, 1f).toDouble())
+    }
+    mainHandler.post {
+      if (cameraEnabled && camera != null && generation == liveAnalysisGeneration.get()) {
+        reactContext.getJSModule(RCTEventEmitter::class.java).receiveEvent(id, "topDocumentCorners", event)
+      }
+    }
+  }
+
+  private fun pointMap(point: ScanPoint) = Arguments.createMap().apply {
+    putDouble("x", point.x.coerceIn(0.0, 1.0))
+    putDouble("y", point.y.coerceIn(0.0, 1.0))
   }
 
   private fun processCaptureImage(bytes: ByteArray, capture: PendingCapture) {
@@ -343,14 +446,17 @@ class ScannerCameraView(context: Context) : TextureView(context), TextureView.Su
   }
 
   override fun onSurfaceTextureAvailable(surface: SurfaceTexture, w: Int, h: Int) { openCamera() }
-  override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) { applyPreviewTransform(w, h) }
+  override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, w: Int, h: Int) { resetLiveAnalysis(); applyPreviewTransform(w, h) }
   override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { closeCamera(); return true }
-  override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+  override fun onSurfaceTextureUpdated(surface: SurfaceTexture) { scheduleLiveAnalysis() }
 
   companion object {
     const val REQUEST_CAMERA = 4101
-    const val CAPTURE_PROCESSING_TIMEOUT_MS = 15_000L
-    var activeView: ScannerCameraView? = null
+        const val CAPTURE_PROCESSING_TIMEOUT_MS = 15_000L
+        const val LIVE_ANALYSIS_INTERVAL_MS = 350L
+        const val LIVE_ANALYSIS_INTERVAL_NANOS = LIVE_ANALYSIS_INTERVAL_MS * 1_000_000L
+        const val LIVE_ANALYSIS_MAX_EDGE = 640
+        var activeView: ScannerCameraView? = null
 
     @JvmStatic
     fun imageRotationFor(sensorOrientation: Int, displayRotation: Int): Int {

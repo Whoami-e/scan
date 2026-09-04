@@ -400,6 +400,8 @@ scan/
 6. 接入系统预览、分享、日志导出和权限异常状态。
 7. 执行真机、性能和 20 页验收，最后再做 Release 构建。
 
+FairScan 集成验收记录统一维护在 `docs/testing/fairscan-integration-acceptance.md`，发布前必须同时通过许可证、日志隐私、Debug/Release 构建和三台 API 29+ 设备检查。
+
 ## 6. 当前验收与记录入口
 
 当前可以执行的检查：

@@ -6,7 +6,7 @@
  * 稳定的路径和状态，避免 UI 代码知道过多平台细节。
  */
 
-export type EnhanceMode = 'original' | 'enhanced' | 'grayscale';
+export type EnhanceMode = 'original' | 'enhanced' | 'grayscale' | 'blackwhite';
 
 export type DocumentStatus =
   | 'draft'

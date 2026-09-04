@@ -20,7 +20,7 @@ object DocumentDetector {
   private const val FALLBACK_MARGIN = 0.08f
   private const val FALLBACK_CONFIDENCE = 0.2f
 
-  enum class Source { OPENCV, FALLBACK }
+  enum class Source { FAIRSCAN, OPENCV, FALLBACK }
 
   data class Detection(
     val cornersPx: FloatArray,
@@ -28,7 +28,29 @@ object DocumentDetector {
     val source: Source,
   )
 
-  fun detect(bitmap: Bitmap): Detection {
+  fun detect(bitmap: Bitmap, fairScan: FairScanDocumentDetector? = null, mode: AnalysisMode = AnalysisMode.CAPTURE): Detection {
+    return chooseDetection(
+      fairScan = { fairScan?.detect(bitmap, mode)?.let { result ->
+      val p = result.quad
+      Detection(floatArrayOf(
+        (p.topLeft.x * bitmap.width).toFloat(), (p.topLeft.y * bitmap.height).toFloat(),
+        (p.topRight.x * bitmap.width).toFloat(), (p.topRight.y * bitmap.height).toFloat(),
+        (p.bottomRight.x * bitmap.width).toFloat(), (p.bottomRight.y * bitmap.height).toFloat(),
+        (p.bottomLeft.x * bitmap.width).toFloat(), (p.bottomLeft.y * bitmap.height).toFloat(),
+      ), result.confidence.coerceIn(0f, 1f), Source.FAIRSCAN)
+    } },
+      openCv = { detectWithOpenCv(bitmap) },
+      fallback = { fallback(bitmap) },
+    )
+  }
+
+  internal fun chooseDetection(
+    fairScan: () -> Detection?,
+    openCv: () -> Detection?,
+    fallback: () -> Detection,
+  ): Detection = fairScan() ?: openCv() ?: fallback()
+
+  private fun detectWithOpenCv(bitmap: Bitmap): Detection {
     if (bitmap.width < 2 || bitmap.height < 2) return fallback(bitmap)
 
     var scaled: Bitmap? = null
