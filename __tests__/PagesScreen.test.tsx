@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
+import {Image} from 'react-native';
 import {Button} from 'react-native-paper';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -7,6 +8,16 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 import PagesScreen from '../src/screens/PagesScreen';
+
+const pages = [{
+  id: 'page-1',
+  originalImagePath: 'file:///sandbox/original.jpg',
+  processedImagePath: 'file:///sandbox/processed.jpg',
+  rotationDegrees: 0,
+  enhanceMode: 'original' as const,
+  source: 'camera' as const,
+  createdAt: '2026-09-04T00:00:00.000Z',
+}];
 
 function renderPages(): ReactTestRenderer.ReactTestRenderer {
   let renderer: ReactTestRenderer.ReactTestRenderer;
@@ -60,4 +71,34 @@ test('provides a back control that delegates to the parent', () => {
     renderer!.root.findByProps({accessibilityLabel: '返回首页'}).props.onPress();
   });
   expect(onBack).toHaveBeenCalledTimes(1);
+});
+
+test('opens a full page preview from each document card', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<PagesScreen pages={pages} />);
+  });
+
+  ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({accessibilityLabel: '预览第 1 页'}).props.onPress();
+  });
+
+  expect(renderer!.root.findByProps({accessibilityLabel: '第 1 页大图预览'})).toBeDefined();
+  expect(renderer!.root.findByType(Image).props.source).toEqual({uri: 'file:///sandbox/processed.jpg'});
+});
+
+test('closes the page preview and returns to the document cards', () => {
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<PagesScreen pages={pages} />);
+  });
+
+  ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({accessibilityLabel: '预览第 1 页'}).props.onPress();
+  });
+  ReactTestRenderer.act(() => {
+    renderer!.root.findByProps({accessibilityLabel: '关闭页面预览'}).props.onPress();
+  });
+
+  expect(renderer!.root.findAllByProps({accessibilityLabel: '第 1 页大图预览'})).toHaveLength(0);
 });
