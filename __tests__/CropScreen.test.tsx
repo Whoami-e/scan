@@ -68,6 +68,23 @@ test('uses the captured image as the crop canvas source', () => {
   expect(image.props.source).toEqual({uri: 'file:///tmp/captured.jpg'});
 });
 
+test('shows a wide imported image in full at its original aspect ratio', () => {
+  const renderer = renderCrop({imagePath: 'content://gallery/wide-photo'});
+  const image = renderer.root.findByProps({accessibilityLabel: '待裁剪照片'});
+
+  expect(image.props.onLoad).toEqual(expect.any(Function));
+  ReactTestRenderer.act(() => {
+    image.props.onLoad({nativeEvent: {source: {width: 2400, height: 1000}}});
+  });
+
+  expect(image.props.resizeMode).toBe('contain');
+  const frame = renderer.root.findByProps({testID: 'crop-frame'});
+  const frameStyle = Array.isArray(frame.props.style)
+    ? Object.assign({}, ...frame.props.style)
+    : frame.props.style;
+  expect(frameStyle.aspectRatio).toBe(2.4);
+});
+
 test.each(['fairscan', 'opencv'] as const)('does not warn for %s detections', source => {
   const renderer = renderCrop({detectionSource: source, detectionConfidence: 0.8});
   expect(renderer.root.findAllByProps({accessibilityLabel: '低置信度提示'})).toHaveLength(0);

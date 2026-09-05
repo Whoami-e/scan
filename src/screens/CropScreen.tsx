@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {
   GestureResponderEvent,
   Image,
+  ImageLoadEvent,
   LayoutChangeEvent,
   PanResponder,
   PanResponderGestureState,
@@ -66,6 +67,7 @@ function CropScreen({
   const respondersRef = useRef<Partial<Record<CornerId, ReturnType<typeof PanResponder.create>>>>({});
   const paperSizeRef = useRef({height: 0, width: 0});
   const [paperSize, setPaperSize] = useState({height: 0, width: 0});
+  const [imageAspectRatio, setImageAspectRatio] = useState<number>();
 
   useEffect(() => {
     if (initialCorners) updateCorners(initialCorners);
@@ -86,6 +88,11 @@ function CropScreen({
     const nextSize = {height, width};
     paperSizeRef.current = nextSize;
     setPaperSize(nextSize);
+  }
+
+  function onImageLoad(event: ImageLoadEvent): void {
+    const {height, width} = event.nativeEvent.source;
+    if (width > 0 && height > 0) setImageAspectRatio(width / height);
   }
 
   function clamp(value: number): number {
@@ -156,12 +163,16 @@ function CropScreen({
 
       <View style={styles.cropCanvas} testID="crop-canvas">
         {detectionSource === 'fallback' && (detectionConfidence ?? 0) < 0.3 ? <Text accessibilityLabel="低置信度提示" maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.lowConfidence}>请手动确认裁剪范围</Text> : null}
-        <View onLayout={onPaperLayout} style={styles.paperFrame} testID="crop-frame">
+        <View
+          onLayout={onPaperLayout}
+          style={imageAspectRatio ? [styles.paperFrame, {aspectRatio: imageAspectRatio}] : styles.paperFrame}
+          testID="crop-frame">
           <View pointerEvents="none" style={styles.paperSurface}>
             {imagePath ? (
               <Image
                 accessibilityLabel="待裁剪照片"
-                resizeMode="cover"
+                onLoad={onImageLoad}
+                resizeMode="contain"
                 source={{uri: imagePath}}
                 style={styles.capturedImage}
               />
